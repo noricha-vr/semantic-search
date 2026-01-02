@@ -125,6 +125,32 @@ def watch(
 
 
 @app.command()
+def serve(
+    host: str = typer.Option("127.0.0.1", "--host", "-h", help="ホスト"),
+    port: int = typer.Option(8765, "--port", "-p", help="ポート"),
+    reload: bool = typer.Option(False, "--reload", help="開発モード（自動リロード）"),
+) -> None:
+    """APIサーバーを起動する。"""
+    settings = get_settings()
+    setup_logging(settings.log_level, settings.logs_dir)
+
+    import uvicorn
+
+    console.print(Panel.fit(
+        f"Starting API server at http://{host}:{port}\n"
+        "Press Ctrl+C to stop.",
+        title="LocalDocSearch API",
+    ))
+
+    uvicorn.run(
+        "src.api.main:app",
+        host=host,
+        port=port,
+        reload=reload,
+    )
+
+
+@app.command()
 def status() -> None:
     """インデックスの状態を表示する。"""
     settings = get_settings()
