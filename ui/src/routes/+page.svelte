@@ -1,6 +1,7 @@
 <script lang="ts">
 	import SearchBar from '$lib/components/SearchBar.svelte';
 	import SearchResults from '$lib/components/SearchResults.svelte';
+	import { getApiBaseUrl } from '$lib/config';
 
 	interface SearchResult {
 		chunk_id: string;
@@ -41,7 +42,7 @@
 		errorMessage = '';
 
 		try {
-			let url = `http://localhost:8765/api/search?q=${encodeURIComponent(searchQuery)}&limit=20`;
+			let url = `${getApiBaseUrl()}/api/search?q=${encodeURIComponent(searchQuery)}&limit=20`;
 			if (mediaType) {
 				url += `&media_type=${encodeURIComponent(mediaType)}`;
 			}
@@ -65,7 +66,7 @@
 
 	async function handleOpenFile(result: SearchResult) {
 		try {
-			await fetch('http://localhost:8765/api/actions/open', {
+			await fetch(`${getApiBaseUrl()}/api/actions/open`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
@@ -80,7 +81,7 @@
 
 	async function handleRevealFile(result: SearchResult) {
 		try {
-			await fetch('http://localhost:8765/api/actions/reveal', {
+			await fetch(`${getApiBaseUrl()}/api/actions/reveal`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ path: result.path })

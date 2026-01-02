@@ -53,11 +53,11 @@ uv run python -m src.cli.main status
 ./scripts/start.sh
 
 # または直接起動
-uv run uvicorn src.api.main:app --host 127.0.0.1 --port 8765
+uv run uvicorn src.api.main:app --host 0.0.0.0 --port 2602
 ```
 
-- API: http://127.0.0.1:8765
-- Swagger UI: http://127.0.0.1:8765/docs
+- API: http://localhost:2602
+- Swagger UI: http://localhost:2602/docs
 
 ### Web UI
 

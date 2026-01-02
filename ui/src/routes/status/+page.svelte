@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { getApiBaseUrl } from '$lib/config';
 
 	interface Stats {
 		total_documents: number;
@@ -33,8 +34,8 @@
 
 		try {
 			const [statsRes, docsRes] = await Promise.all([
-				fetch('http://localhost:8765/api/documents/stats'),
-				fetch('http://localhost:8765/api/documents?limit=5')
+				fetch(`${getApiBaseUrl()}/api/documents/stats`),
+				fetch(`${getApiBaseUrl()}/api/documents?limit=5`)
 			]);
 
 			if (!statsRes.ok || !docsRes.ok) {
@@ -95,7 +96,7 @@
 
 	async function openFile(path: string) {
 		try {
-			await fetch('http://localhost:8765/api/actions/open', {
+			await fetch(`${getApiBaseUrl()}/api/actions/open`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ path })

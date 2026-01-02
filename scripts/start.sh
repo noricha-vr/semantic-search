@@ -27,7 +27,7 @@ fi
 
 # API サーバーを起動
 echo -e "${GREEN}API サーバーを起動中...${NC}"
-uv run uvicorn src.api.main:app --host 127.0.0.1 --port 8765 &
+uv run uvicorn src.api.main:app --host 0.0.0.0 --port 2602 &
 API_PID=$!
 
 # 終了時にプロセスをクリーンアップ
@@ -45,8 +45,8 @@ echo -e "${GREEN}================================${NC}"
 echo -e "${GREEN}LocalDocSearch が起動しました!${NC}"
 echo -e "${GREEN}================================${NC}"
 echo ""
-echo -e "API: http://127.0.0.1:8765"
-echo -e "API Docs: http://127.0.0.1:8765/docs"
+echo -e "API: http://localhost:2602"
+echo -e "API Docs: http://localhost:2602/docs"
 echo ""
 echo -e "Ctrl+C で終了"
 echo ""

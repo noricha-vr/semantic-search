@@ -26,8 +26,8 @@ class Settings(BaseSettings):
     )
 
     # API
-    api_host: str = Field(default="127.0.0.1", description="APIサーバーのホスト")
-    api_port: int = Field(default=8765, description="APIサーバーのポート")
+    api_host: str = Field(default="0.0.0.0", description="APIサーバーのホスト")
+    api_port: int = Field(default=2602, description="APIサーバーのポート")
 
     # Data
     data_dir: Path = Field(

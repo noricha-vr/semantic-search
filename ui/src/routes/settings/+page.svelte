@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { getApiBaseUrl } from '$lib/config';
 
 	const STORAGE_KEY = 'localdocsearch_watch_paths';
 
@@ -54,7 +55,7 @@
 		showMessage('インデックス化を開始しました...', 'info');
 
 		try {
-			const response = await fetch('http://localhost:8765/api/documents/index', {
+			const response = await fetch(`${getApiBaseUrl()}/api/documents/index`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ path, recursive: true })

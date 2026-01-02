@@ -10,9 +10,9 @@
         <string>/Users/ms25/project/local-doc-search/.venv/bin/uvicorn</string>
         <string>src.api.main:app</string>
         <string>--host</string>
-        <string>127.0.0.1</string>
+        <string>0.0.0.0</string>
         <string>--port</string>
-        <string>8765</string>
+        <string>2602</string>
     </array>
 
     <key>WorkingDirectory</key>
