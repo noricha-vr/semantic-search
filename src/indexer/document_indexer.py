@@ -11,11 +11,13 @@ from typing import Any
 from src.config.logging import get_logger
 from src.embeddings.ollama_embedding import OllamaEmbeddingClient
 from src.indexer.hash_utils import calculate_file_hash
+from src.processors.audio_processor import AudioProcessor
 from src.processors.chunker import Chunker
 from src.processors.image_processor import ImageProcessor
 from src.processors.office_processor import OfficeProcessor
 from src.processors.pdf_processor import PDFProcessor
 from src.processors.text_processor import TextProcessor
+from src.processors.video_processor import VideoProcessor
 from src.storage.lancedb_client import LanceDBClient
 from src.storage.schema import MediaType
 from src.storage.sqlite_client import SQLiteClient
@@ -39,6 +41,8 @@ class DocumentIndexer:
         self.text_processor = TextProcessor()
         self.office_processor = OfficeProcessor()
         self.image_processor = ImageProcessor()
+        self.audio_processor = AudioProcessor()
+        self.video_processor = VideoProcessor()
         self.chunker = Chunker()
         self.embedding_client = OllamaEmbeddingClient()
         self.lancedb_client = LanceDBClient()
@@ -155,10 +159,13 @@ class DocumentIndexer:
         if media_type == MediaType.IMAGE:
             return self._index_image(file_path, content_hash)
 
-        # 動画・音声は後のフェーズで対応
-        if media_type in (MediaType.VIDEO, MediaType.AUDIO):
-            logger.info(f"Skipping media file (not yet supported): {file_path}")
-            return None
+        # 音声処理
+        if media_type == MediaType.AUDIO:
+            return self._index_audio(file_path, content_hash)
+
+        # 動画処理
+        if media_type == MediaType.VIDEO:
+            return self._index_video(file_path, content_hash)
 
         # テキスト抽出
         text = self._extract_text(file_path)
@@ -288,6 +295,88 @@ class DocumentIndexer:
         except Exception as e:
             logger.error(f"Failed to index image {file_path}: {e}")
             # ドキュメントを削除
+            self.sqlite_client.delete_document(document_id, hard_delete=True)
+            return None
+
+    def _index_audio(
+        self,
+        file_path: Path,
+        content_hash: str,
+    ) -> dict[str, Any] | None:
+        """音声をインデックス化。
+
+        Args:
+            file_path: ファイルパス
+            content_hash: コンテンツハッシュ
+
+        Returns:
+            ドキュメントレコードまたはNone
+        """
+        # ドキュメントレコード作成
+        doc_record = self._create_document_record(file_path, content_hash, MediaType.AUDIO)
+        document_id = doc_record["id"]
+
+        # SQLiteにドキュメントを保存
+        self.sqlite_client.add_document(doc_record)
+
+        # 音声処理とインデックス化
+        try:
+            transcript = self.audio_processor.index_audio(file_path, document_id)
+            if transcript:
+                # duration を更新
+                doc_record["duration_seconds"] = transcript.get("duration_seconds")
+                self.sqlite_client.add_transcript(transcript)
+                logger.info(f"Indexed audio: {file_path}, document_id: {document_id}")
+                return doc_record
+            else:
+                # ドキュメントを削除
+                self.sqlite_client.delete_document(document_id, hard_delete=True)
+                return None
+        except Exception as e:
+            logger.error(f"Failed to index audio {file_path}: {e}")
+            self.sqlite_client.delete_document(document_id, hard_delete=True)
+            return None
+
+    def _index_video(
+        self,
+        file_path: Path,
+        content_hash: str,
+    ) -> dict[str, Any] | None:
+        """動画をインデックス化。
+
+        Args:
+            file_path: ファイルパス
+            content_hash: コンテンツハッシュ
+
+        Returns:
+            ドキュメントレコードまたはNone
+        """
+        # ドキュメントレコード作成
+        doc_record = self._create_document_record(file_path, content_hash, MediaType.VIDEO)
+        document_id = doc_record["id"]
+
+        # SQLiteにドキュメントを保存
+        self.sqlite_client.add_document(doc_record)
+
+        # 動画処理とインデックス化
+        try:
+            result = self.video_processor.index_video(file_path, document_id)
+            if result:
+                transcript = result.get("transcript")
+                if transcript:
+                    # duration と dimensions を更新
+                    doc_record["duration_seconds"] = transcript.get("duration_seconds")
+                    doc_record["width"] = result.get("width")
+                    doc_record["height"] = result.get("height")
+                    self.sqlite_client.add_transcript(transcript)
+                logger.info(f"Indexed video: {file_path}, document_id: {document_id}")
+                return doc_record
+            else:
+                # ドキュメントを削除
+                self.sqlite_client.delete_document(document_id, hard_delete=True)
+                return None
+        except Exception as e:
+            logger.error(f"Failed to index video {file_path}: {e}")
             self.sqlite_client.delete_document(document_id, hard_delete=True)
             return None
 

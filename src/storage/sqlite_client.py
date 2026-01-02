@@ -296,6 +296,50 @@ class SQLiteClient:
                 )
             logger.info(f"Deleted document: {document_id}")
 
+    def add_transcript(self, transcript: dict[str, Any]) -> None:
+        """Transcriptを追加。
+
+        Args:
+            transcript: Transcriptデータ
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT OR REPLACE INTO transcripts
+                (id, document_id, full_text, language, duration_seconds, word_count)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """,
+                (
+                    transcript["id"],
+                    transcript["document_id"],
+                    transcript["full_text"],
+                    transcript["language"],
+                    transcript["duration_seconds"],
+                    transcript["word_count"],
+                ),
+            )
+            logger.info(f"Added transcript for document: {transcript['document_id']}")
+
+    def get_transcript(self, document_id: str) -> dict[str, Any] | None:
+        """ドキュメントIDでTranscriptを取得。
+
+        Args:
+            document_id: ドキュメントID
+
+        Returns:
+            Transcriptデータまたはなし
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT * FROM transcripts WHERE document_id = ?", (document_id,)
+            )
+            row = cursor.fetchone()
+            if row:
+                return dict(row)
+            return None
+
     def get_stats(self) -> dict[str, Any]:
         """統計情報を取得。
 
