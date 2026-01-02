@@ -72,13 +72,28 @@ async def list_documents(
 ):
     """ドキュメント一覧を取得。"""
     client = SQLiteClient()
-
-    # TODO: 実際のページネーションクエリに置き換え
+    docs = client.get_recent_documents(limit=limit, media_type=media_type)
     stats = client.get_stats()
 
     return DocumentListResponse(
         total=stats["total_documents"],
-        documents=[],  # TODO: 実際のドキュメントリストを返す
+        documents=[
+            DocumentResponse(
+                id=doc["id"],
+                path=doc["path"],
+                filename=doc["filename"],
+                extension=doc["extension"],
+                media_type=doc["media_type"],
+                size=doc["size"],
+                created_at=doc["created_at"],
+                modified_at=doc["modified_at"],
+                indexed_at=doc["indexed_at"],
+                duration_seconds=doc.get("duration_seconds"),
+                width=doc.get("width"),
+                height=doc.get("height"),
+            )
+            for doc in docs
+        ],
     )
 
 

@@ -37,13 +37,19 @@ class VLMClient:
             return True
 
         try:
-            models = self._client.list()
-            available = any(m.get("name", "").startswith(model.split(":")[0])
-                          for m in models.get("models", []))
+            models_response = self._client.list()
+            # ollama-pythonはModelオブジェクトのリストを返す
+            model_list = getattr(models_response, 'models', [])
+            model_prefix = model.split(":")[0]
+            available = any(
+                getattr(m, 'model', '').startswith(model_prefix)
+                for m in model_list
+            )
             if available:
                 self._checked_models.add(model)
             return available
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Failed to check model availability: {e}")
             return False
 
     def _get_available_model(self) -> str:

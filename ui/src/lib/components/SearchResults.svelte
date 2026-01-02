@@ -13,11 +13,39 @@
 
 	interface Props {
 		results: SearchResult[];
+		query: string;
 		onOpen: (result: SearchResult) => void;
 		onReveal: (result: SearchResult) => void;
 	}
 
-	let { results, onOpen, onReveal }: Props = $props();
+	let { results, query, onOpen, onReveal }: Props = $props();
+
+	function highlightText(text: string, searchQuery: string): string {
+		if (!searchQuery.trim()) return escapeHtml(text);
+
+		const escapedText = escapeHtml(text);
+		const words = searchQuery.trim().split(/\s+/).filter((w) => w.length > 0);
+		if (words.length === 0) return escapedText;
+
+		// 各単語に対してハイライト
+		const pattern = words.map((w) => escapeRegex(w)).join('|');
+		const regex = new RegExp(`(${pattern})`, 'gi');
+
+		return escapedText.replace(regex, '<mark class="bg-yellow-200 text-gray-900 rounded px-0.5">$1</mark>');
+	}
+
+	function escapeHtml(text: string): string {
+		return text
+			.replace(/&/g, '&amp;')
+			.replace(/</g, '&lt;')
+			.replace(/>/g, '&gt;')
+			.replace(/"/g, '&quot;')
+			.replace(/'/g, '&#039;');
+	}
+
+	function escapeRegex(text: string): string {
+		return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+	}
 
 	function formatTimestamp(seconds?: number): string {
 		if (seconds === undefined || seconds === null) return '';
@@ -84,7 +112,7 @@
 						</h3>
 
 						<p class="text-sm text-gray-600 line-clamp-3">
-							{result.text}
+							{@html highlightText(result.text, query)}
 						</p>
 
 						<p class="text-sm text-gray-400 truncate mt-2" title={result.path}>

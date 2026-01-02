@@ -8,24 +8,42 @@
 		last_indexed_at: string | null;
 	}
 
+	interface Document {
+		id: string;
+		path: string;
+		filename: string;
+		extension: string;
+		media_type: string;
+		size: number;
+		indexed_at: string;
+	}
+
 	let stats = $state<Stats | null>(null);
+	let recentDocs = $state<Document[]>([]);
 	let isLoading = $state(true);
 	let error = $state('');
 
 	onMount(async () => {
-		await loadStats();
+		await loadData();
 	});
 
-	async function loadStats() {
+	async function loadData() {
 		isLoading = true;
 		error = '';
 
 		try {
-			const response = await fetch('http://localhost:8765/api/documents/stats');
-			if (!response.ok) {
-				throw new Error('統計情報の取得に失敗しました');
+			const [statsRes, docsRes] = await Promise.all([
+				fetch('http://localhost:8765/api/documents/stats'),
+				fetch('http://localhost:8765/api/documents?limit=5')
+			]);
+
+			if (!statsRes.ok || !docsRes.ok) {
+				throw new Error('データの取得に失敗しました');
 			}
-			stats = await response.json();
+
+			stats = await statsRes.json();
+			const docsData = await docsRes.json();
+			recentDocs = docsData.documents;
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'エラーが発生しました';
 		} finally {
@@ -48,6 +66,44 @@
 		};
 		return labels[type] || type;
 	}
+
+	function formatSize(bytes: number): string {
+		if (bytes < 1024) return `${bytes} B`;
+		if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+		return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+	}
+
+	function getMediaTypeIcon(type: string): string {
+		const icons: Record<string, string> = {
+			document: 'D',
+			image: 'I',
+			video: 'V',
+			audio: 'A'
+		};
+		return icons[type] || '?';
+	}
+
+	function getMediaTypeColor(type: string): string {
+		const colors: Record<string, string> = {
+			document: 'bg-blue-100 text-blue-700',
+			image: 'bg-green-100 text-green-700',
+			video: 'bg-purple-100 text-purple-700',
+			audio: 'bg-orange-100 text-orange-700'
+		};
+		return colors[type] || 'bg-gray-100 text-gray-700';
+	}
+
+	async function openFile(path: string) {
+		try {
+			await fetch('http://localhost:8765/api/actions/open', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ path })
+			});
+		} catch (e) {
+			console.error('Failed to open file:', e);
+		}
+	}
 </script>
 
 <div class="min-h-screen bg-gray-50">
@@ -65,7 +121,7 @@
 			<div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-6">
 				{error}
 				<button
-					onclick={loadStats}
+					onclick={loadData}
 					class="ml-2 underline hover:no-underline"
 				>
 					再試行
@@ -120,9 +176,36 @@
 				{/if}
 			</div>
 
+			{#if recentDocs.length > 0}
+				<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mt-6">
+					<h2 class="text-lg font-semibold text-gray-900 mb-4">最近のドキュメント</h2>
+					<ul class="space-y-2">
+						{#each recentDocs as doc (doc.id)}
+							<li class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+								<div class="flex items-center gap-3 min-w-0">
+									<span class="flex-shrink-0 w-8 h-8 rounded flex items-center justify-center text-sm font-medium {getMediaTypeColor(doc.media_type)}">
+										{getMediaTypeIcon(doc.media_type)}
+									</span>
+									<div class="min-w-0">
+										<p class="text-gray-900 truncate" title={doc.filename}>{doc.filename}</p>
+										<p class="text-sm text-gray-500">{formatSize(doc.size)} - {formatDate(doc.indexed_at)}</p>
+									</div>
+								</div>
+								<button
+									onclick={() => openFile(doc.path)}
+									class="flex-shrink-0 px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+								>
+									開く
+								</button>
+							</li>
+						{/each}
+					</ul>
+				</div>
+			{/if}
+
 			<div class="mt-6 flex justify-center">
 				<button
-					onclick={loadStats}
+					onclick={loadData}
 					class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
 				>
 					更新

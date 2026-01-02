@@ -147,7 +147,7 @@
 					</select>
 				</div>
 			</div>
-			<SearchResults {results} onOpen={handleOpenFile} onReveal={handleRevealFile} />
+			<SearchResults {results} {query} onOpen={handleOpenFile} onReveal={handleRevealFile} />
 		{:else if query}
 			<p class="text-center text-gray-500 py-12">
 				「{query}」に一致する結果が見つかりませんでした

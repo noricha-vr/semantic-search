@@ -375,3 +375,39 @@ class SQLiteClient:
                 "total_chunks": total_chunks,
                 "last_indexed_at": last_indexed,
             }
+
+    def get_recent_documents(
+        self, limit: int = 10, media_type: str | None = None
+    ) -> list[dict[str, Any]]:
+        """最近インデックスされたドキュメントを取得。
+
+        Args:
+            limit: 取得件数
+            media_type: メディアタイプでフィルタ
+
+        Returns:
+            ドキュメントのリスト
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            if media_type:
+                cursor.execute(
+                    """
+                    SELECT * FROM documents
+                    WHERE is_deleted = 0 AND media_type = ?
+                    ORDER BY indexed_at DESC
+                    LIMIT ?
+                """,
+                    (media_type, limit),
+                )
+            else:
+                cursor.execute(
+                    """
+                    SELECT * FROM documents
+                    WHERE is_deleted = 0
+                    ORDER BY indexed_at DESC
+                    LIMIT ?
+                """,
+                    (limit,),
+                )
+            return [dict(row) for row in cursor.fetchall()]

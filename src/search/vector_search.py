@@ -78,12 +78,13 @@ class VectorSearch:
             filter_expr=filter_expr,
         )
 
-        # VLM結果も検索（画像対応後に有効化）
-        # vlm_results = self.lancedb_client.search_vlm_results(
-        #     query_vector=query_vector,
-        #     limit=limit,
-        #     filter_expr=filter_expr,
-        # )
+        # VLM結果も検索
+        vlm_results = []
+        if not media_types or "image" in media_types:
+            vlm_results = self.lancedb_client.search_vlm_results(
+                query_vector=query_vector,
+                limit=limit,
+            )
 
         # 結果を統合
         results = []
@@ -99,6 +100,28 @@ class VectorSearch:
                     score=1.0 - r.get("_distance", 0),  # 距離をスコアに変換
                     start_time=r.get("start_time"),
                     end_time=r.get("end_time"),
+                )
+            )
+
+        # VLM結果を追加（画像）
+        for r in vlm_results:
+            # descriptionとocr_textを結合してテキストとして使用
+            text_parts = []
+            if r.get("description"):
+                text_parts.append(r["description"])
+            if r.get("ocr_text"):
+                text_parts.append(f"[OCR] {r['ocr_text']}")
+            text = "\n".join(text_parts) if text_parts else "No description"
+
+            results.append(
+                SearchResult(
+                    chunk_id=r["id"],
+                    document_id=r["document_id"],
+                    text=text,
+                    path=r["path"],
+                    filename=r["filename"],
+                    media_type="image",
+                    score=1.0 - r.get("_distance", 0),
                 )
             )
 

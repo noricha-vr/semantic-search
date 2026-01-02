@@ -1,23 +1,57 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
+
+	const STORAGE_KEY = 'localdocsearch_watch_paths';
+
 	let watchPaths = $state<string[]>([]);
 	let newPath = $state('');
 	let message = $state('');
+	let messageType = $state<'info' | 'success' | 'error'>('info');
+
+	onMount(() => {
+		const saved = localStorage.getItem(STORAGE_KEY);
+		if (saved) {
+			try {
+				watchPaths = JSON.parse(saved);
+			} catch {
+				watchPaths = [];
+			}
+		}
+	});
+
+	function saveWatchPaths() {
+		localStorage.setItem(STORAGE_KEY, JSON.stringify(watchPaths));
+	}
+
+	function showMessage(msg: string, type: 'info' | 'success' | 'error' = 'info') {
+		message = msg;
+		messageType = type;
+		setTimeout(() => (message = ''), 3000);
+	}
 
 	async function addPath() {
 		if (!newPath.trim()) return;
 
-		watchPaths = [...watchPaths, newPath.trim()];
+		const path = newPath.trim();
+		if (watchPaths.includes(path)) {
+			showMessage('このパスは既に追加されています', 'error');
+			return;
+		}
+
+		watchPaths = [...watchPaths, path];
+		saveWatchPaths();
 		newPath = '';
-		message = 'パスを追加しました';
-		setTimeout(() => (message = ''), 3000);
+		showMessage('パスを追加しました', 'success');
 	}
 
 	function removePath(index: number) {
 		watchPaths = watchPaths.filter((_, i) => i !== index);
+		saveWatchPaths();
+		showMessage('パスを削除しました', 'info');
 	}
 
 	async function indexPath(path: string) {
-		message = 'インデックス化を開始しました...';
+		showMessage('インデックス化を開始しました...', 'info');
 
 		try {
 			const response = await fetch('http://localhost:8765/api/documents/index', {
@@ -31,9 +65,9 @@
 			}
 
 			const data = await response.json();
-			message = `${data.indexed_count}件のファイルをインデックス化しました`;
+			showMessage(`${data.indexed_count}件のファイルをインデックス化しました`, 'success');
 		} catch (error) {
-			message = error instanceof Error ? error.message : 'エラーが発生しました';
+			showMessage(error instanceof Error ? error.message : 'エラーが発生しました', 'error');
 		}
 	}
 </script>
@@ -50,7 +84,13 @@
 
 	<main class="max-w-4xl mx-auto px-4 py-6">
 		{#if message}
-			<div class="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded mb-6">
+			<div
+				class="px-4 py-3 rounded mb-6 {messageType === 'success'
+					? 'bg-green-50 border border-green-200 text-green-700'
+					: messageType === 'error'
+						? 'bg-red-50 border border-red-200 text-red-700'
+						: 'bg-blue-50 border border-blue-200 text-blue-700'}"
+			>
 				{message}
 			</div>
 		{/if}
