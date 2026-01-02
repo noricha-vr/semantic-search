@@ -69,7 +69,7 @@ class SQLiteClient:
                 )
             """)
 
-            # チャンク用FTS5テーブル
+            # チャンク用FTS5テーブル（コンテンツを保持する標準FTS5）
             cursor.execute("""
                 CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(
                     chunk_id,
@@ -77,7 +77,6 @@ class SQLiteClient:
                     text,
                     path,
                     filename,
-                    content='',
                     tokenize='unicode61'
                 )
             """)

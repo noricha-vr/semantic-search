@@ -101,6 +101,7 @@ class HybridSearch:
                 "text": r.text,
                 "path": r.path,
                 "filename": r.filename,
+                "media_type": "document",  # BM25からはメディアタイプが取れないのでデフォルト
                 "bm25_score": r.bm25_score,
             }
             for r in bm25_results
