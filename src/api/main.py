@@ -5,12 +5,14 @@
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from src.api.routes import actions, documents, search
 from src.config.logging import get_logger
 from src.config.settings import get_settings
+from src.utils.errors import LocalDocSearchError, to_http_exception
 
 logger = get_logger()
 settings = get_settings()
@@ -44,6 +46,30 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# グローバルエラーハンドラ
+@app.exception_handler(LocalDocSearchError)
+async def local_doc_search_error_handler(
+    request: Request, exc: LocalDocSearchError
+) -> JSONResponse:
+    """カスタムエラーをJSONレスポンスに変換。"""
+    http_exc = to_http_exception(exc)
+    logger.error(f"LocalDocSearchError: {exc.message}", extra={"details": exc.details})
+    return JSONResponse(
+        status_code=http_exc.status_code,
+        content={"error": exc.message, "details": exc.details},
+    )
+
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """予期しないエラーをキャッチ。"""
+    logger.exception(f"Unexpected error: {exc}")
+    return JSONResponse(
+        status_code=500,
+        content={"error": "Internal server error", "details": {"message": str(exc)}},
+    )
+
 
 # ルーターを登録
 app.include_router(search.router, prefix="/api/search", tags=["search"])

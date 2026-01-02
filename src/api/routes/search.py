@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 
 from src.config.logging import get_logger
 from src.search.hybrid_search import HybridSearch
+from src.utils.errors import OllamaConnectionError, SearchError
 
 logger = get_logger()
 router = APIRouter()
@@ -47,34 +48,47 @@ async def search(
     """
     logger.info(f"Search request: q={q}, limit={limit}, media_type={media_type}")
 
-    client = HybridSearch()
-    media_types = [media_type] if media_type else None
-    results = client.search(
-        query=q,
-        limit=limit,
-        media_types=media_types,
-    )
-
-    search_results = [
-        SearchResult(
-            chunk_id=r.chunk_id,
-            document_id=r.document_id,
-            text=r.text,
-            path=r.path,
-            filename=r.filename,
-            media_type=r.media_type,
-            score=r.score,
-            start_time=r.start_time,
-            end_time=r.end_time,
+    try:
+        client = HybridSearch()
+        media_types = [media_type] if media_type else None
+        results = client.search(
+            query=q,
+            limit=limit,
+            media_types=media_types,
         )
-        for r in results
-    ]
 
-    return SearchResponse(
-        query=q,
-        total=len(search_results),
-        results=search_results,
-    )
+        search_results = [
+            SearchResult(
+                chunk_id=r.chunk_id,
+                document_id=r.document_id,
+                text=r.text,
+                path=r.path,
+                filename=r.filename,
+                media_type=r.media_type,
+                score=r.score,
+                start_time=r.start_time,
+                end_time=r.end_time,
+            )
+            for r in results
+        ]
+
+        return SearchResponse(
+            query=q,
+            total=len(search_results),
+            results=search_results,
+        )
+    except ConnectionError as e:
+        logger.error(f"Ollama connection error: {e}")
+        raise OllamaConnectionError(
+            message="Ollama service is not available",
+            details={"original_error": str(e)},
+        )
+    except Exception as e:
+        logger.error(f"Search error: {e}")
+        raise SearchError(
+            message="Search failed",
+            details={"query": q, "original_error": str(e)},
+        )
 
 
 class SuggestRequest(BaseModel):
