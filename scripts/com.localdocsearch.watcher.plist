@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.localdocsearch.watcher</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/ms25/project/local-doc-search/.venv/bin/python</string>
+        <string>-m</string>
+        <string>src.cli.main</string>
+        <string>watch</string>
+        <string>/Users/ms25/Documents</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/ms25/project/local-doc-search</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/localdocsearch-watcher.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/tmp/localdocsearch-watcher.err</string>
+</dict>
+</plist>
