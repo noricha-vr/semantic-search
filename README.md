@@ -34,32 +34,71 @@ cd ui && bun install
 
 ```bash
 # ファイル/ディレクトリをインデックス化
-uv run local-doc-search index ~/Documents
+uv run python -m src.cli.main index ~/Documents
 
 # 検索
-uv run local-doc-search search "会議の議事録"
+uv run python -m src.cli.main search "会議の議事録"
 
 # ディレクトリ監視（自動インデックス）
-uv run local-doc-search watch ~/Documents ~/Downloads
-
-# APIサーバー起動
-uv run local-doc-search serve
+uv run python -m src.cli.main watch ~/Documents ~/Downloads
 
 # インデックス状態確認
-uv run local-doc-search status
+uv run python -m src.cli.main status
 ```
+
+### APIサーバー
+
+```bash
+# 起動スクリプトを使用
+./scripts/start.sh
+
+# または直接起動
+uv run uvicorn src.api.main:app --host 127.0.0.1 --port 8765
+```
+
+- API: http://127.0.0.1:8765
+- Swagger UI: http://127.0.0.1:8765/docs
 
 ### Web UI
 
 ```bash
-# ターミナル1: APIサーバー
-uv run local-doc-search serve
+# ターミナル1: APIサーバー起動
+./scripts/start.sh
 
 # ターミナル2: フロントエンド開発サーバー
 cd ui && bun run dev
 ```
 
 ブラウザで http://localhost:5173 を開く
+
+### デーモン化（自動起動）
+
+ログイン時にAPIサーバーとファイル監視を自動起動:
+
+```bash
+# インストール
+./scripts/install-daemon.sh
+
+# アンインストール
+./scripts/uninstall-daemon.sh
+
+# 状態確認
+launchctl list | grep localdocsearch
+
+# ログ確認
+tail -f /tmp/localdocsearch-api.log
+tail -f /tmp/localdocsearch-watcher.log
+```
+
+## テスト
+
+```bash
+# テスト実行
+uv run pytest tests/ -v
+
+# 特定のテストファイル
+uv run pytest tests/test_sqlite_client.py -v
+```
 
 ## 機能
 
@@ -69,6 +108,8 @@ cd ui && bun run dev
 - タイムスタンプジャンプ（VLC/IINA対応）
 - ファイル監視・自動インデックス
 - Web UI（SvelteKit + Tailwind CSS）
+- メディアタイプフィルター
+- 検索結果ソート
 
 ## 対応ファイル形式
 
@@ -82,18 +123,36 @@ cd ui && bun run dev
 ## アーキテクチャ
 
 ```
-src/
-├── api/          # FastAPI REST API
-├── cli/          # Typer CLI
-├── config/       # 設定管理
-├── embeddings/   # BGE-M3 Embedding
-├── indexer/      # インデックス処理
-├── ocr/          # VLM画像理解
-├── processors/   # ファイル処理
-├── search/       # 検索エンジン
-├── storage/      # LanceDB + SQLite
-├── transcription/# 音声認識
-└── utils/        # ユーティリティ
-
-ui/               # SvelteKit フロントエンド
+local-doc-search/
+├── src/
+│   ├── api/          # FastAPI REST API
+│   ├── cli/          # Typer CLI
+│   ├── config/       # 設定管理
+│   ├── embeddings/   # BGE-M3 Embedding
+│   ├── indexer/      # インデックス処理
+│   ├── ocr/          # VLM画像理解
+│   ├── processors/   # ファイル処理
+│   ├── search/       # 検索エンジン
+│   ├── storage/      # LanceDB + SQLite
+│   ├── transcription/# 音声認識
+│   └── utils/        # ユーティリティ
+├── ui/               # SvelteKit フロントエンド
+├── tests/            # テストコード
+└── scripts/          # スクリプト・デーモン設定
 ```
+
+## 技術スタック
+
+| カテゴリ | 技術 |
+|---------|------|
+| バックエンド | Python 3.11+, FastAPI, uv |
+| フロントエンド | SvelteKit, Tailwind CSS, Bun |
+| ベクトルDB | LanceDB |
+| 全文検索 | SQLite FTS5 (BM25) |
+| Embedding | Ollama (BGE-M3) |
+| 画像理解 | Ollama (llava:7b) |
+| 音声認識 | mlx-whisper |
+
+## ライセンス
+
+MIT
