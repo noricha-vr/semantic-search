@@ -80,7 +80,13 @@
 <div class="min-h-screen bg-gray-50">
 	<header class="bg-white shadow-sm border-b border-gray-200">
 		<div class="max-w-4xl mx-auto px-4 py-6">
-			<h1 class="text-2xl font-bold text-gray-900 mb-4">LocalDocSearch</h1>
+			<div class="flex items-center justify-between mb-4">
+				<h1 class="text-2xl font-bold text-gray-900">LocalDocSearch</h1>
+				<nav class="flex gap-4">
+					<a href="/status" class="text-gray-600 hover:text-gray-900">ダッシュボード</a>
+					<a href="/settings" class="text-gray-600 hover:text-gray-900">設定</a>
+				</nav>
+			</div>
 			<SearchBar onSearch={handleSearch} {isLoading} />
 		</div>
 	</header>

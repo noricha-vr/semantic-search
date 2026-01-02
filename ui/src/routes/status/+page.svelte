@@ -1,0 +1,133 @@
+<script lang="ts">
+	import { onMount } from 'svelte';
+
+	interface Stats {
+		total_documents: number;
+		by_media_type: Record<string, number>;
+		total_chunks: number;
+		last_indexed_at: string | null;
+	}
+
+	let stats = $state<Stats | null>(null);
+	let isLoading = $state(true);
+	let error = $state('');
+
+	onMount(async () => {
+		await loadStats();
+	});
+
+	async function loadStats() {
+		isLoading = true;
+		error = '';
+
+		try {
+			const response = await fetch('http://localhost:8765/api/documents/stats');
+			if (!response.ok) {
+				throw new Error('統計情報の取得に失敗しました');
+			}
+			stats = await response.json();
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'エラーが発生しました';
+		} finally {
+			isLoading = false;
+		}
+	}
+
+	function formatDate(dateStr: string | null): string {
+		if (!dateStr) return 'N/A';
+		const date = new Date(dateStr);
+		return date.toLocaleString('ja-JP');
+	}
+
+	function getMediaTypeLabel(type: string): string {
+		const labels: Record<string, string> = {
+			document: 'ドキュメント',
+			image: '画像',
+			video: '動画',
+			audio: '音声'
+		};
+		return labels[type] || type;
+	}
+</script>
+
+<div class="min-h-screen bg-gray-50">
+	<header class="bg-white shadow-sm border-b border-gray-200">
+		<div class="max-w-4xl mx-auto px-4 py-6">
+			<div class="flex items-center justify-between">
+				<h1 class="text-2xl font-bold text-gray-900">ダッシュボード</h1>
+				<a href="/" class="text-blue-500 hover:text-blue-600">検索に戻る</a>
+			</div>
+		</div>
+	</header>
+
+	<main class="max-w-4xl mx-auto px-4 py-6">
+		{#if error}
+			<div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-6">
+				{error}
+				<button
+					onclick={loadStats}
+					class="ml-2 underline hover:no-underline"
+				>
+					再試行
+				</button>
+			</div>
+		{/if}
+
+		{#if isLoading}
+			<div class="flex justify-center py-12">
+				<div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+			</div>
+		{:else if stats}
+			<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+				<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+					<h2 class="text-sm font-medium text-gray-500 mb-1">総ドキュメント数</h2>
+					<p class="text-3xl font-bold text-gray-900">{stats.total_documents}</p>
+				</div>
+
+				<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+					<h2 class="text-sm font-medium text-gray-500 mb-1">総チャンク数</h2>
+					<p class="text-3xl font-bold text-gray-900">{stats.total_chunks}</p>
+				</div>
+
+				<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+					<h2 class="text-sm font-medium text-gray-500 mb-1">最終インデックス</h2>
+					<p class="text-lg font-medium text-gray-900">{formatDate(stats.last_indexed_at)}</p>
+				</div>
+			</div>
+
+			<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+				<h2 class="text-lg font-semibold text-gray-900 mb-4">メディアタイプ別</h2>
+
+				{#if Object.keys(stats.by_media_type).length > 0}
+					<div class="space-y-3">
+						{#each Object.entries(stats.by_media_type) as [type, count] (type)}
+							<div class="flex items-center justify-between">
+								<span class="text-gray-700">{getMediaTypeLabel(type)}</span>
+								<div class="flex items-center gap-2">
+									<div class="w-32 bg-gray-200 rounded-full h-2">
+										<div
+											class="bg-blue-500 h-2 rounded-full"
+											style="width: {Math.min((count / stats.total_documents) * 100, 100)}%"
+										></div>
+									</div>
+									<span class="text-gray-900 font-medium w-12 text-right">{count}</span>
+								</div>
+							</div>
+						{/each}
+					</div>
+				{:else}
+					<p class="text-gray-500 text-center py-4">データがありません</p>
+				{/if}
+			</div>
+
+			<div class="mt-6 flex justify-center">
+				<button
+					onclick={loadStats}
+					class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+				>
+					更新
+				</button>
+			</div>
+		{/if}
+	</main>
+</div>
