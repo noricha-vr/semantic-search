@@ -40,7 +40,7 @@ class Settings(BaseSettings):
 
     # Models
     embedding_model: str = Field(default="bge-m3", description="Embeddingモデル名")
-    vlm_model: str = Field(default="qwen2.5-vl:7b", description="VLMモデル名")
+    vlm_model: str = Field(default="llava:7b", description="VLMモデル名")
     reranker_model: str = Field(
         default="bge-reranker-v2-m3", description="リランカーモデル名"
     )

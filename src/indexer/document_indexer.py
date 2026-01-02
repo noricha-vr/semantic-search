@@ -12,6 +12,7 @@ from src.config.logging import get_logger
 from src.embeddings.ollama_embedding import OllamaEmbeddingClient
 from src.indexer.hash_utils import calculate_file_hash
 from src.processors.chunker import Chunker
+from src.processors.image_processor import ImageProcessor
 from src.processors.office_processor import OfficeProcessor
 from src.processors.pdf_processor import PDFProcessor
 from src.processors.text_processor import TextProcessor
@@ -37,6 +38,7 @@ class DocumentIndexer:
         self.pdf_processor = PDFProcessor()
         self.text_processor = TextProcessor()
         self.office_processor = OfficeProcessor()
+        self.image_processor = ImageProcessor()
         self.chunker = Chunker()
         self.embedding_client = OllamaEmbeddingClient()
         self.lancedb_client = LanceDBClient()
@@ -149,8 +151,12 @@ class DocumentIndexer:
         # メディアタイプ判定
         media_type = self._get_media_type(file_path)
 
-        # 画像・動画・音声は後のフェーズで対応
-        if media_type in (MediaType.IMAGE, MediaType.VIDEO, MediaType.AUDIO):
+        # 画像処理
+        if media_type == MediaType.IMAGE:
+            return self._index_image(file_path, content_hash)
+
+        # 動画・音声は後のフェーズで対応
+        if media_type in (MediaType.VIDEO, MediaType.AUDIO):
             logger.info(f"Skipping media file (not yet supported): {file_path}")
             return None
 
@@ -243,6 +249,47 @@ class DocumentIndexer:
 
         logger.info(f"Indexed {len(indexed)} files from: {directory}")
         return indexed
+
+    def _index_image(
+        self,
+        file_path: Path,
+        content_hash: str,
+    ) -> dict[str, Any] | None:
+        """画像をインデックス化。
+
+        Args:
+            file_path: ファイルパス
+            content_hash: コンテンツハッシュ
+
+        Returns:
+            ドキュメントレコードまたはNone
+        """
+        # ドキュメントレコード作成
+        doc_record = self._create_document_record(file_path, content_hash, MediaType.IMAGE)
+        document_id = doc_record["id"]
+
+        # 画像メタデータを取得して更新
+        try:
+            from PIL import Image
+            with Image.open(file_path) as img:
+                doc_record["width"] = img.width
+                doc_record["height"] = img.height
+        except Exception as e:
+            logger.warning(f"Failed to get image metadata: {e}")
+
+        # SQLiteにドキュメントを保存
+        self.sqlite_client.add_document(doc_record)
+
+        # 画像処理とインデックス化
+        try:
+            self.image_processor.index_image(file_path, document_id)
+            logger.info(f"Indexed image: {file_path}, document_id: {document_id}")
+            return doc_record
+        except Exception as e:
+            logger.error(f"Failed to index image {file_path}: {e}")
+            # ドキュメントを削除
+            self.sqlite_client.delete_document(document_id, hard_delete=True)
+            return None
 
     def delete_document(self, document_id: str) -> None:
         """ドキュメントを削除。
