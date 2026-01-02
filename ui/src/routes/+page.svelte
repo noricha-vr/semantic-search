@@ -17,22 +17,36 @@
 	let results = $state<SearchResult[]>([]);
 	let isLoading = $state(false);
 	let query = $state('');
+	let currentMediaType = $state<string | null>(null);
 	let errorMessage = $state('');
+	let sortBy = $state<'score' | 'filename'>('score');
 
-	async function handleSearch(searchQuery: string) {
+	$effect(() => {
+		if (sortBy === 'score') {
+			results = [...results].sort((a, b) => b.score - a.score);
+		} else {
+			results = [...results].sort((a, b) => a.filename.localeCompare(b.filename));
+		}
+	});
+
+	async function handleSearch(searchQuery: string, mediaType: string | null = null) {
 		if (!searchQuery.trim()) {
 			results = [];
 			return;
 		}
 
 		query = searchQuery;
+		currentMediaType = mediaType;
 		isLoading = true;
 		errorMessage = '';
 
 		try {
-			const response = await fetch(
-				`http://localhost:8765/api/search?q=${encodeURIComponent(searchQuery)}&limit=20`
-			);
+			let url = `http://localhost:8765/api/search?q=${encodeURIComponent(searchQuery)}&limit=20`;
+			if (mediaType) {
+				url += `&media_type=${encodeURIComponent(mediaType)}`;
+			}
+
+			const response = await fetch(url);
 
 			if (!response.ok) {
 				throw new Error('検索に失敗しました');
@@ -75,6 +89,16 @@
 			console.error('Failed to reveal file:', error);
 		}
 	}
+
+	function getMediaTypeLabel(type: string | null): string {
+		const labels: Record<string, string> = {
+			document: 'ドキュメント',
+			image: '画像',
+			audio: '音声',
+			video: '動画'
+		};
+		return type ? labels[type] || type : 'すべて';
+	}
 </script>
 
 <div class="min-h-screen bg-gray-50">
@@ -100,19 +124,30 @@
 
 		{#if isLoading}
 			<div class="flex justify-center py-12">
-				<div
-					class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"
-				></div>
+				<div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
 			</div>
 		{:else if results.length > 0}
-			<p class="text-sm text-gray-500 mb-4">
-				「{query}」の検索結果: {results.length}件
-			</p>
-			<SearchResults
-				{results}
-				onOpen={handleOpenFile}
-				onReveal={handleRevealFile}
-			/>
+			<div class="flex items-center justify-between mb-4">
+				<p class="text-sm text-gray-500">
+					「{query}」の検索結果: {results.length}件
+					{#if currentMediaType}
+						<span class="ml-1 px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">
+							{getMediaTypeLabel(currentMediaType)}
+						</span>
+					{/if}
+				</p>
+				<div class="flex items-center gap-2 text-sm">
+					<span class="text-gray-500">並び替え:</span>
+					<select
+						bind:value={sortBy}
+						class="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+					>
+						<option value="score">関連度順</option>
+						<option value="filename">ファイル名順</option>
+					</select>
+				</div>
+			</div>
+			<SearchResults {results} onOpen={handleOpenFile} onReveal={handleRevealFile} />
 		{:else if query}
 			<p class="text-center text-gray-500 py-12">
 				「{query}」に一致する結果が見つかりませんでした
@@ -120,9 +155,7 @@
 		{:else}
 			<div class="text-center text-gray-500 py-12">
 				<p class="text-lg mb-2">ドキュメントを検索</p>
-				<p class="text-sm">
-					画像、PDF、動画、音声ファイルを自然言語で検索できます
-				</p>
+				<p class="text-sm">画像、PDF、動画、音声ファイルを自然言語で検索できます</p>
 			</div>
 		{/if}
 	</main>
