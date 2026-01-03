@@ -147,21 +147,100 @@ sequenceDiagram
 ```
 local-doc-search/
 ├── src/
-│   ├── config/          # 設定管理
-│   ├── indexer/         # インデックス処理
-│   ├── processors/      # ファイル処理
-│   ├── transcription/   # 音声認識
-│   ├── ocr/             # OCR
-│   ├── embeddings/      # Embedding
-│   ├── storage/         # DB操作
-│   ├── search/          # 検索
-│   ├── api/             # REST API
-│   └── cli/             # CLI
-├── ui/                  # SvelteKit
-├── data/                # データ
-├── scripts/             # スクリプト
-├── tests/               # テスト
-└── docs/                # ドキュメント
+│   ├── api/              # REST API (FastAPI)
+│   ├── cli/              # CLI (Typer)
+│   ├── config/           # 設定管理
+│   ├── constants/        # 定数定義
+│   │   └── media_types.py   # メディアタイプ定数
+│   ├── embeddings/       # Embedding生成
+│   ├── indexer/          # インデックス処理
+│   │   └── processors/      # メディアタイプ別プロセッサ
+│   │       ├── base.py         # 基底クラス (BaseMediaProcessor)
+│   │       ├── document_processor.py  # ドキュメント処理
+│   │       ├── image_indexer.py       # 画像処理
+│   │       ├── audio_indexer.py       # 音声処理
+│   │       └── video_indexer.py       # 動画処理
+│   ├── ocr/              # OCR
+│   ├── processors/       # ファイル処理
+│   │   ├── pdf_processor.py    # PDF処理 (PyMuPDF4LLM)
+│   │   ├── vlm_processor.py    # VLM処理
+│   │   └── chunker.py          # チャンキング
+│   ├── search/           # 検索エンジン
+│   ├── storage/          # ストレージ層
+│   │   ├── models.py        # Pydanticモデル
+│   │   ├── sqlite_client.py # SQLiteクライアント
+│   │   └── repositories/    # リポジトリパターン
+│   │       ├── document_repository.py   # ドキュメント
+│   │       ├── chunk_repository.py      # チャンク
+│   │       └── transcript_repository.py # トランスクリプト
+│   ├── transcription/    # 音声認識
+│   └── utils/            # ユーティリティ
+├── ui/                   # SvelteKit フロントエンド
+│   └── src/lib/
+│       ├── components/      # UIコンポーネント
+│       │   └── settings/       # 設定画面コンポーネント
+│       ├── services/        # APIサービス
+│       │   └── indexerService.ts  # インデクサーAPI
+│       └── utils/           # ユーティリティ
+│           └── mediaType.ts    # メディアタイプユーティリティ
+├── data/                 # データ
+├── scripts/              # スクリプト
+├── tests/                # テスト (177件)
+└── docs/                 # ドキュメント
+```
+
+## 設計パターン
+
+### リポジトリパターン
+
+データアクセス層を抽象化し、テスト容易性を向上。
+
+```
+storage/repositories/
+├── base.py                    # BaseRepository（共通インターフェース）
+├── document_repository.py     # ドキュメントCRUD
+├── chunk_repository.py        # チャンクCRUD
+└── transcript_repository.py   # トランスクリプトCRUD
+```
+
+### プロセッサパターン
+
+メディアタイプ別の処理を分離。
+
+```python
+class BaseMediaProcessor(ABC):
+    @abstractmethod
+    def can_process(self, file_path: Path) -> bool: ...
+    @abstractmethod
+    def process(self, file_path: Path, doc_id: int) -> ProcessorResult: ...
+```
+
+| プロセッサ | 対象 |
+|-----------|------|
+| DocumentProcessor | PDF, TXT, MD, DOCX, XLSX, PPTX |
+| ImageIndexerProcessor | JPG, PNG, GIF, BMP, WEBP |
+| AudioIndexerProcessor | MP3, WAV, M4A, FLAC, AAC, OGG |
+| VideoIndexerProcessor | MP4, MOV, AVI, MKV, WMV, WEBM |
+
+### Pydanticモデル
+
+型安全なデータ構造。
+
+```python
+# storage/models.py
+class DocumentRecord(BaseModel):
+    id: int
+    file_path: str
+    file_hash: str
+    media_type: str
+    ...
+
+class ChunkRecord(BaseModel):
+    id: int
+    document_id: int
+    chunk_index: int
+    text: str
+    ...
 ```
 
 ## セキュリティ

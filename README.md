@@ -126,20 +126,28 @@ uv run pytest tests/test_sqlite_client.py -v
 ```
 local-doc-search/
 ├── src/
-│   ├── api/          # FastAPI REST API
-│   ├── cli/          # Typer CLI
-│   ├── config/       # 設定管理
-│   ├── embeddings/   # BGE-M3 Embedding
-│   ├── indexer/      # インデックス処理
-│   ├── ocr/          # VLM画像理解
-│   ├── processors/   # ファイル処理
-│   ├── search/       # 検索エンジン
-│   ├── storage/      # LanceDB + SQLite
-│   ├── transcription/# 音声認識
-│   └── utils/        # ユーティリティ
-├── ui/               # SvelteKit フロントエンド
-├── tests/            # テストコード
-└── scripts/          # スクリプト・デーモン設定
+│   ├── api/              # FastAPI REST API
+│   ├── cli/              # Typer CLI
+│   ├── config/           # 設定管理
+│   ├── constants/        # 定数定義（メディアタイプ等）
+│   ├── embeddings/       # BGE-M3 Embedding
+│   ├── indexer/          # インデックス処理
+│   │   └── processors/   # メディアタイプ別プロセッサ
+│   ├── ocr/              # VLM画像理解
+│   ├── processors/       # ファイル処理（PDF, VLM等）
+│   ├── search/           # 検索エンジン
+│   ├── storage/          # ストレージ層
+│   │   ├── models.py     # Pydanticモデル
+│   │   └── repositories/ # リポジトリパターン
+│   ├── transcription/    # 音声認識
+│   └── utils/            # ユーティリティ
+├── ui/                   # SvelteKit フロントエンド
+│   └── src/lib/
+│       ├── components/   # UIコンポーネント
+│       ├── services/     # APIサービス
+│       └── utils/        # ユーティリティ
+├── tests/                # テストコード（177件）
+└── scripts/              # スクリプト・デーモン設定
 ```
 
 ## 技術スタック
