@@ -49,6 +49,27 @@ class Settings(BaseSettings):
     chunk_size: int = Field(default=800, description="チャンクサイズ（文字数）")
     chunk_overlap: int = Field(default=200, description="チャンクのオーバーラップ（文字数）")
 
+    # PDF Processing
+    pdf_use_markdown: bool = Field(
+        default=True, description="PyMuPDF4LLMでMarkdown抽出を使用"
+    )
+    pdf_min_chars_per_page: int = Field(
+        default=100, description="VLMフォールバック閾値（1ページあたりの最小文字数）"
+    )
+    pdf_vlm_fallback: bool = Field(
+        default=True, description="テキスト少量時にVLMフォールバックを有効化"
+    )
+    pdf_vlm_dpi: int = Field(default=150, description="VLM処理時のPDF→画像変換DPI")
+    pdf_vlm_model: str = Field(
+        default="minicpm-v", description="PDF VLM処理用モデル"
+    )
+    pdf_vlm_timeout: int = Field(
+        default=60, description="VLM処理の1ページあたりのタイムアウト（秒）"
+    )
+    pdf_vlm_max_pages: int = Field(
+        default=20, description="VLM処理する最大ページ数（0で無制限）"
+    )
+
     @field_validator("data_dir", mode="before")
     @classmethod
     def expand_path(cls, v: str | Path) -> Path:

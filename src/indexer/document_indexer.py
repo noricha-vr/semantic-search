@@ -3,19 +3,28 @@
 ファイルを処理してインデックス化する。
 """
 
+import os
+import signal
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+
+class VLMTimeoutError(Exception):
+    """VLM処理がタイムアウトした場合の例外。"""
+    pass
+
 from src.config.logging import get_logger
+from src.config.settings import get_settings
 from src.embeddings.ollama_embedding import OllamaEmbeddingClient
 from src.indexer.hash_utils import calculate_file_hash
+from src.ocr.vlm_client import VLMClient
 from src.processors.audio_processor import AudioProcessor
 from src.processors.chunker import Chunker
 from src.processors.image_processor import ImageProcessor
 from src.processors.office_processor import OfficeProcessor
-from src.processors.pdf_processor import PDFProcessor
+from src.processors.pdf_processor import PDFProcessor, PDFResult
 from src.processors.text_processor import TextProcessor
 from src.processors.video_processor import VideoProcessor
 from src.storage.lancedb_client import LanceDBClient
@@ -37,6 +46,7 @@ class DocumentIndexer:
 
     def __init__(self):
         """初期化。"""
+        self.settings = get_settings()
         self.pdf_processor = PDFProcessor()
         self.text_processor = TextProcessor()
         self.office_processor = OfficeProcessor()
@@ -47,6 +57,8 @@ class DocumentIndexer:
         self.embedding_client = OllamaEmbeddingClient()
         self.lancedb_client = LanceDBClient()
         self.sqlite_client = SQLiteClient()
+        # PDF VLMフォールバック用（設定されたモデルを使用）
+        self._pdf_vlm_client: VLMClient | None = None
 
     def _get_media_type(self, file_path: Path) -> MediaType:
         """ファイルのメディアタイプを判定。
@@ -80,6 +92,9 @@ class DocumentIndexer:
         try:
             if self.pdf_processor.is_supported(file_path):
                 result = self.pdf_processor.extract_text(file_path)
+                # VLMフォールバック処理
+                if result.pages_needing_vlm and self.settings.pdf_vlm_fallback:
+                    return self._process_pdf_with_vlm(file_path, result)
                 return result.text
             elif self.office_processor.is_supported(file_path):
                 result = self.office_processor.extract_text(file_path)
@@ -93,6 +108,162 @@ class DocumentIndexer:
         except Exception as e:
             logger.error(f"Failed to extract text from {file_path}: {e}")
             return None
+
+    def _get_pdf_vlm_client(self) -> VLMClient:
+        """PDF VLM処理用のクライアントを取得（遅延初期化）。"""
+        if self._pdf_vlm_client is None:
+            self._pdf_vlm_client = VLMClient(model=self.settings.pdf_vlm_model)
+        return self._pdf_vlm_client
+
+    def _process_pdf_with_vlm(self, file_path: Path | str, pdf_result: PDFResult) -> str:
+        """テキスト量が少ないPDFページをVLMで処理。
+
+        Args:
+            file_path: PDFファイルパス
+            pdf_result: PDF処理結果
+
+        Returns:
+            テキスト抽出（VLM処理も含む）とマージされたテキスト
+        """
+        file_path = Path(file_path)
+        vlm_client = self._get_pdf_vlm_client()
+        vlm_texts: dict[int, str] = {}
+
+        # 処理するページを制限
+        pages_to_process = pdf_result.pages_needing_vlm
+        max_pages = self.settings.pdf_vlm_max_pages
+        if max_pages > 0 and len(pages_to_process) > max_pages:
+            logger.warning(
+                f"VLM page limit reached: {len(pages_to_process)} pages need VLM, "
+                f"but max is {max_pages}. Processing first {max_pages} pages only."
+            )
+            pages_to_process = pages_to_process[:max_pages]
+
+        total_pages = len(pages_to_process)
+        logger.info(
+            f"Starting VLM processing: {total_pages} pages from {file_path.name}"
+        )
+
+        # VLMが必要なページを画像に変換して処理
+        image_paths = self.pdf_processor.render_pages_to_images(
+            file_path, pages_to_process
+        )
+
+        timeout_seconds = self.settings.pdf_vlm_timeout
+        successful = 0
+        failed = 0
+        timed_out = 0
+
+        try:
+            for i, (page_num, image_path) in enumerate(zip(pages_to_process, image_paths)):
+                progress = f"[{i + 1}/{total_pages}]"
+                logger.info(f"{progress} Processing page {page_num + 1} with VLM...")
+
+                try:
+                    # タイムアウト付きでVLM処理
+                    text = self._vlm_extract_with_timeout(
+                        vlm_client, image_path, timeout_seconds
+                    )
+                    if text:
+                        vlm_texts[page_num] = text
+                        successful += 1
+                        logger.info(
+                            f"{progress} Page {page_num + 1}: extracted {len(text)} chars"
+                        )
+                    else:
+                        failed += 1
+                        logger.warning(f"{progress} Page {page_num + 1}: no text extracted")
+                except VLMTimeoutError:
+                    timed_out += 1
+                    logger.warning(
+                        f"{progress} Page {page_num + 1}: timeout after {timeout_seconds}s"
+                    )
+                except Exception as e:
+                    failed += 1
+                    logger.warning(f"{progress} Page {page_num + 1}: VLM error - {e}")
+        finally:
+            # 一時画像ファイルを削除
+            for image_path in image_paths:
+                try:
+                    os.unlink(image_path)
+                except Exception:
+                    pass
+
+        # 処理結果のサマリ
+        logger.info(
+            f"VLM processing complete: {successful} successful, "
+            f"{failed} failed, {timed_out} timed out"
+        )
+
+        # テキストとVLM結果をマージ
+        if not vlm_texts:
+            return pdf_result.text
+
+        return self._merge_pdf_texts(pdf_result, vlm_texts)
+
+    def _vlm_extract_with_timeout(
+        self,
+        vlm_client: VLMClient,
+        image_path: Path,
+        timeout_seconds: int,
+    ) -> str:
+        """タイムアウト付きでVLMテキスト抽出。
+
+        Args:
+            vlm_client: VLMクライアント
+            image_path: 画像ファイルパス
+            timeout_seconds: タイムアウト秒数
+
+        Returns:
+            抽出されたテキスト
+
+        Raises:
+            VLMTimeoutError: タイムアウト時
+        """
+        def timeout_handler(signum, frame):
+            raise VLMTimeoutError(f"VLM processing timed out after {timeout_seconds}s")
+
+        # シグナルハンドラを設定（Unixのみ）
+        old_handler = signal.signal(signal.SIGALRM, timeout_handler)
+        signal.alarm(timeout_seconds)
+
+        try:
+            return vlm_client.extract_text(image_path)
+        finally:
+            signal.alarm(0)
+            signal.signal(signal.SIGALRM, old_handler)
+
+    def _merge_pdf_texts(
+        self,
+        pdf_result: PDFResult,
+        vlm_texts: dict[int, str],
+    ) -> str:
+        """PDFテキストとVLM抽出テキストをマージ。
+
+        Args:
+            pdf_result: PDF処理結果
+            vlm_texts: VLMで抽出したテキスト（ページ番号 -> テキスト）
+
+        Returns:
+            マージされたテキスト
+        """
+        if not vlm_texts:
+            return pdf_result.text
+
+        # VLM結果をマーカー付きで追加
+        vlm_section = "\n\n--- VLM Extracted Text ---\n"
+        for page_num in sorted(vlm_texts.keys()):
+            vlm_section += f"\n[Page {page_num + 1}]\n{vlm_texts[page_num]}\n"
+
+        combined = pdf_result.text + vlm_section
+
+        logger.info(
+            f"Merged PDF text: original {len(pdf_result.text)} chars, "
+            f"VLM {sum(len(t) for t in vlm_texts.values())} chars from "
+            f"{len(vlm_texts)} pages"
+        )
+
+        return combined
 
     def _create_document_record(
         self,
