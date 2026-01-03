@@ -23,11 +23,16 @@
 	let errorMessage = $state('');
 	let sortBy = $state<'score' | 'filename'>('score');
 
+	// sortByが変わったときだけソートを実行（resultsの変更では再実行しない）
+	let prevSortBy = $state(sortBy);
 	$effect(() => {
-		if (sortBy === 'score') {
-			results = [...results].sort((a, b) => b.score - a.score);
-		} else {
-			results = [...results].sort((a, b) => a.filename.localeCompare(b.filename));
+		if (sortBy !== prevSortBy) {
+			prevSortBy = sortBy;
+			if (sortBy === 'score') {
+				results = [...results].sort((a, b) => b.score - a.score);
+			} else {
+				results = [...results].sort((a, b) => a.filename.localeCompare(b.filename));
+			}
 		}
 	});
 

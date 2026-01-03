@@ -588,3 +588,89 @@ class TestDocumentProcessorVlmFallbackIntegration:
             # pages_needing_vlm が空なので呼ばれない
             mock_vlm_processor.process_pdf_pages.assert_not_called()
             assert result == pdf_result.text
+
+
+class TestDocumentIndexerExcludePatterns:
+    """DocumentIndexer除外パターン機能のテスト。"""
+
+    @pytest.fixture
+    def mock_indexer_settings(self):
+        """除外パターン付きのモック設定。"""
+        settings = MagicMock()
+        settings.exclude_patterns = ["iterm-log", "*.log", ".git", "__pycache__", "node_modules"]
+        return settings
+
+    def test_should_exclude_directory_name(self, mock_indexer_settings):
+        """ディレクトリ名が除外パターンに一致。"""
+        from src.indexer.document_indexer import DocumentIndexer
+
+        with patch("src.indexer.document_indexer.get_settings", return_value=mock_indexer_settings), \
+             patch("src.indexer.document_indexer.OllamaEmbeddingClient"), \
+             patch("src.indexer.document_indexer.LanceDBClient"), \
+             patch("src.indexer.document_indexer.SQLiteClient"):
+            indexer = DocumentIndexer()
+            indexer.settings = mock_indexer_settings
+
+            # ディレクトリ名がiterm-logを含むパス
+            path = Path("/Users/test/Documents/iterm-log/20250101.log")
+            assert indexer._should_exclude(path) is True
+
+    def test_should_exclude_glob_pattern(self, mock_indexer_settings):
+        """ファイル名がglobパターンに一致。"""
+        from src.indexer.document_indexer import DocumentIndexer
+
+        with patch("src.indexer.document_indexer.get_settings", return_value=mock_indexer_settings), \
+             patch("src.indexer.document_indexer.OllamaEmbeddingClient"), \
+             patch("src.indexer.document_indexer.LanceDBClient"), \
+             patch("src.indexer.document_indexer.SQLiteClient"):
+            indexer = DocumentIndexer()
+            indexer.settings = mock_indexer_settings
+
+            # .logファイル
+            path = Path("/Users/test/Documents/app.log")
+            assert indexer._should_exclude(path) is True
+
+    def test_should_not_exclude_normal_file(self, mock_indexer_settings):
+        """通常のファイルは除外しない。"""
+        from src.indexer.document_indexer import DocumentIndexer
+
+        with patch("src.indexer.document_indexer.get_settings", return_value=mock_indexer_settings), \
+             patch("src.indexer.document_indexer.OllamaEmbeddingClient"), \
+             patch("src.indexer.document_indexer.LanceDBClient"), \
+             patch("src.indexer.document_indexer.SQLiteClient"):
+            indexer = DocumentIndexer()
+            indexer.settings = mock_indexer_settings
+
+            # 通常のPDFファイル
+            path = Path("/Users/test/Documents/report.pdf")
+            assert indexer._should_exclude(path) is False
+
+    def test_should_exclude_git_directory(self, mock_indexer_settings):
+        """.gitディレクトリ内のファイルを除外。"""
+        from src.indexer.document_indexer import DocumentIndexer
+
+        with patch("src.indexer.document_indexer.get_settings", return_value=mock_indexer_settings), \
+             patch("src.indexer.document_indexer.OllamaEmbeddingClient"), \
+             patch("src.indexer.document_indexer.LanceDBClient"), \
+             patch("src.indexer.document_indexer.SQLiteClient"):
+            indexer = DocumentIndexer()
+            indexer.settings = mock_indexer_settings
+
+            # .git内のファイル
+            path = Path("/Users/test/project/.git/config")
+            assert indexer._should_exclude(path) is True
+
+    def test_should_exclude_node_modules(self, mock_indexer_settings):
+        """node_modulesディレクトリ内のファイルを除外。"""
+        from src.indexer.document_indexer import DocumentIndexer
+
+        with patch("src.indexer.document_indexer.get_settings", return_value=mock_indexer_settings), \
+             patch("src.indexer.document_indexer.OllamaEmbeddingClient"), \
+             patch("src.indexer.document_indexer.LanceDBClient"), \
+             patch("src.indexer.document_indexer.SQLiteClient"):
+            indexer = DocumentIndexer()
+            indexer.settings = mock_indexer_settings
+
+            # node_modules内のファイル
+            path = Path("/Users/test/project/node_modules/package/index.js")
+            assert indexer._should_exclude(path) is True

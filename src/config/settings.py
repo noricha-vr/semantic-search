@@ -45,6 +45,12 @@ class Settings(BaseSettings):
         default="bge-reranker-v2-m3", description="リランカーモデル名"
     )
 
+    # Indexing
+    exclude_patterns: list[str] = Field(
+        default=["iterm-log", "*.log", ".git", "__pycache__", "node_modules", ".venv"],
+        description="インデックス対象から除外するパターン（ディレクトリ名またはglobパターン）",
+    )
+
     # Chunking
     chunk_size: int = Field(default=800, description="チャンクサイズ（文字数）")
     chunk_overlap: int = Field(default=200, description="チャンクのオーバーラップ（文字数）")

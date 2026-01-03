@@ -3,6 +3,7 @@
 ファイルを処理してインデックス化する。
 """
 
+import fnmatch
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -71,6 +72,28 @@ class DocumentIndexer:
             lancedb_client=self.lancedb_client,
             sqlite_client=self.sqlite_client,
         )
+
+    def _should_exclude(self, file_path: Path) -> bool:
+        """ファイルが除外パターンに一致するか判定。
+
+        Args:
+            file_path: ファイルパス
+
+        Returns:
+            除外する場合True
+        """
+        path_str = str(file_path)
+        for pattern in self.settings.exclude_patterns:
+            # ディレクトリ名として一致するか
+            if pattern in file_path.parts:
+                return True
+            # globパターンとして一致するか
+            if fnmatch.fnmatch(file_path.name, pattern):
+                return True
+            # フルパスに対してパターンが含まれるか
+            if fnmatch.fnmatch(path_str, f"*{pattern}*"):
+                return True
+        return False
 
     def _get_media_type(self, file_path: Path) -> MediaType:
         """ファイルのメディアタイプを判定。
@@ -156,6 +179,11 @@ class DocumentIndexer:
         file_path = Path(file_path)
         if not file_path.exists():
             logger.warning(f"File not found: {file_path}")
+            return None
+
+        # 除外パターンチェック
+        if self._should_exclude(file_path):
+            logger.debug(f"Excluded by pattern: {file_path}")
             return None
 
         # ハッシュ計算と重複チェック
