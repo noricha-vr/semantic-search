@@ -122,14 +122,14 @@ class Chunker:
                 )
                 chunk_index += 1
 
+            # テキスト終端に達したら終了
+            if end >= len(text):
+                break
+
             # 次のチャンクの開始位置（オーバーラップを考慮）
             start = end - self.chunk_overlap
             if start < 0:
                 start = end
-
-            # 無限ループ防止
-            if start >= len(text) or (start == end and end == len(text)):
-                break
 
         return chunks
 
