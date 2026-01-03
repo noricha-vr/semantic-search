@@ -17,7 +17,7 @@
 | ファイル | 変更内容 |
 |---------|---------|
 | `pyproject.toml` | `pymupdf4llm>=0.0.17` 依存関係追加 |
-| `src/config/settings.py` | PDF処理設定7項目追加 |
+| `src/config/settings.py` | PDF処理設定8項目追加 |
 | `src/processors/pdf_processor.py` | PyMuPDF4LLM統合、VLM用画像変換メソッド追加 |
 | `src/indexer/document_indexer.py` | VLMフォールバック、タイムアウト、進捗ログ追加 |
 
@@ -32,6 +32,7 @@ pdf_vlm_dpi: int = 150                  # 画像変換DPI
 pdf_vlm_model: str = "minicpm-v"        # VLMモデル
 pdf_vlm_timeout: int = 60               # 1ページあたりのタイムアウト（秒）
 pdf_vlm_max_pages: int = 20             # VLM処理する最大ページ数
+pdf_vlm_workers: int = 2                # VLM並列処理のワーカー数（1で順次処理）
 ```
 
 ### 処理フロー
@@ -68,6 +69,8 @@ PyMuPDF4LLM でテキスト抽出（Markdown形式）
 | API経由インデックス | ✅ 正常動作 |
 | 進捗ログ出力 | ✅ `[1/3] Processing page 1 with VLM...` |
 | タイムアウト機能 | ✅ 実装済み |
+| VLM並列処理 | ✅ ThreadPoolExecutor使用 |
+| PDFProcessor単体テスト | ✅ 22件追加 |
 
 ---
 
@@ -102,6 +105,7 @@ PyMuPDF4LLM でテキスト抽出（Markdown形式）
 - `src/indexer/document_indexer.py` - VLMフォールバック処理
 - `src/processors/pdf_processor.py` - PyMuPDF4LLM統合
 - `src/config/settings.py` - PDF処理設定
+- `tests/test_pdf_processor.py` - PDFProcessor単体テスト
 
 ## 正常に動作している機能
 
