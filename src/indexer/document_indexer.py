@@ -18,6 +18,7 @@ class VLMTimeoutError(Exception):
 
 from src.config.logging import get_logger
 from src.config.settings import get_settings
+from src.constants.media_types import get_media_type
 from src.embeddings.ollama_embedding import OllamaEmbeddingClient
 from src.indexer.hash_utils import calculate_file_hash
 from src.ocr.vlm_client import VLMClient
@@ -37,13 +38,6 @@ logger = get_logger()
 
 class DocumentIndexer:
     """ドキュメントインデクサー。"""
-
-    # 画像拡張子
-    IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".tiff", ".svg"}
-    # 動画拡張子
-    VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv", ".wmv", ".flv", ".webm"}
-    # 音声拡張子
-    AUDIO_EXTENSIONS = {".mp3", ".wav", ".m4a", ".flac", ".aac", ".ogg", ".wma"}
 
     def __init__(self):
         """初期化。"""
@@ -72,16 +66,7 @@ class DocumentIndexer:
         Returns:
             メディアタイプ
         """
-        suffix = file_path.suffix.lower()
-
-        if suffix in self.IMAGE_EXTENSIONS:
-            return MediaType.IMAGE
-        elif suffix in self.VIDEO_EXTENSIONS:
-            return MediaType.VIDEO
-        elif suffix in self.AUDIO_EXTENSIONS:
-            return MediaType.AUDIO
-        else:
-            return MediaType.DOCUMENT
+        return get_media_type(file_path)
 
     def _extract_text(self, file_path: Path) -> str | None:
         """ファイルからテキストを抽出。

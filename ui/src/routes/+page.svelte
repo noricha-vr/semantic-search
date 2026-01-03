@@ -2,6 +2,7 @@
 	import SearchBar from '$lib/components/SearchBar.svelte';
 	import SearchResults from '$lib/components/SearchResults.svelte';
 	import { getApiBaseUrl } from '$lib/config';
+	import { getMediaTypeLabel } from '$lib/utils/mediaType';
 
 	interface SearchResult {
 		chunk_id: string;
@@ -91,15 +92,6 @@
 		}
 	}
 
-	function getMediaTypeLabel(type: string | null): string {
-		const labels: Record<string, string> = {
-			document: 'ドキュメント',
-			image: '画像',
-			audio: '音声',
-			video: '動画'
-		};
-		return type ? labels[type] || type : 'すべて';
-	}
 </script>
 
 <div class="min-h-screen bg-gray-50">

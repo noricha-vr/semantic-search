@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { getMediaTypeLabel, getMediaTypeIcon } from '$lib/utils/mediaType';
+
 	interface SearchResult {
 		chunk_id: string;
 		document_id: string;
@@ -54,33 +56,6 @@
 		return `${mins}:${secs.toString().padStart(2, '0')}`;
 	}
 
-	function getMediaTypeIcon(mediaType: string): string {
-		switch (mediaType) {
-			case 'image':
-				return 'fa-image';
-			case 'video':
-				return 'fa-video';
-			case 'audio':
-				return 'fa-music';
-			case 'document':
-			default:
-				return 'fa-file-alt';
-		}
-	}
-
-	function getMediaTypeLabel(mediaType: string): string {
-		switch (mediaType) {
-			case 'image':
-				return '画像';
-			case 'video':
-				return '動画';
-			case 'audio':
-				return '音声';
-			case 'document':
-			default:
-				return 'ドキュメント';
-		}
-	}
 </script>
 
 <div class="space-y-4">

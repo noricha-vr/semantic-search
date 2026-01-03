@@ -1,22 +1,30 @@
 """SQLite FTS5クライアント。
 
 BM25全文検索用のSQLiteデータベースへの接続と操作を提供する。
+リポジトリパターンを使用して責務を分割。
 """
 
 import sqlite3
 from contextlib import contextmanager
-from datetime import datetime
 from pathlib import Path
 from typing import Any, Generator
 
 from src.config.logging import get_logger
 from src.config.settings import get_settings
+from src.storage.repositories import (
+    ChunkRepository,
+    DocumentRepository,
+    TranscriptRepository,
+)
 
 logger = get_logger()
 
 
 class SQLiteClient:
-    """SQLite FTS5クライアント。"""
+    """SQLite FTS5クライアント。
+
+    後方互換性を維持しつつ、リポジトリに処理を委譲する。
+    """
 
     def __init__(self, db_path: Path | None = None):
         """初期化。
@@ -27,7 +35,28 @@ class SQLiteClient:
         settings = get_settings()
         self.db_path = db_path or settings.sqlite_path
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # リポジトリの初期化
+        self._document_repo = DocumentRepository(self.db_path)
+        self._chunk_repo = ChunkRepository(self.db_path)
+        self._transcript_repo = TranscriptRepository(self.db_path)
+
         self._init_db()
+
+    @property
+    def documents(self) -> DocumentRepository:
+        """ドキュメントリポジトリを取得。"""
+        return self._document_repo
+
+    @property
+    def chunks(self) -> ChunkRepository:
+        """チャンクリポジトリを取得。"""
+        return self._chunk_repo
+
+    @property
+    def transcripts(self) -> TranscriptRepository:
+        """トランスクリプトリポジトリを取得。"""
+        return self._transcript_repo
 
     @contextmanager
     def _get_connection(self) -> Generator[sqlite3.Connection, None, None]:
@@ -104,47 +133,15 @@ class SQLiteClient:
 
             logger.info("SQLite database initialized")
 
+    # 後方互換性のためのメソッド（リポジトリに委譲）
+
     def add_document(self, document: dict[str, Any]) -> None:
         """ドキュメントを追加。
 
         Args:
             document: ドキュメントデータ
         """
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                """
-                INSERT OR REPLACE INTO documents
-                (id, content_hash, path, filename, extension, media_type, size,
-                 created_at, modified_at, indexed_at, is_deleted, deleted_at,
-                 duration_seconds, width, height)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-                (
-                    document["id"],
-                    document["content_hash"],
-                    document["path"],
-                    document["filename"],
-                    document["extension"],
-                    document["media_type"],
-                    document["size"],
-                    document["created_at"].isoformat()
-                    if isinstance(document["created_at"], datetime)
-                    else document["created_at"],
-                    document["modified_at"].isoformat()
-                    if isinstance(document["modified_at"], datetime)
-                    else document["modified_at"],
-                    document["indexed_at"].isoformat()
-                    if isinstance(document["indexed_at"], datetime)
-                    else document["indexed_at"],
-                    1 if document.get("is_deleted", False) else 0,
-                    document.get("deleted_at"),
-                    document.get("duration_seconds"),
-                    document.get("width"),
-                    document.get("height"),
-                ),
-            )
-            logger.info(f"Added document: {document['path']}")
+        self._document_repo.add(document)
 
     def add_chunks_fts(self, chunks: list[dict[str, Any]]) -> None:
         """チャンクをFTSテーブルに追加。
@@ -152,23 +149,7 @@ class SQLiteClient:
         Args:
             chunks: チャンクデータのリスト
         """
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            for chunk in chunks:
-                cursor.execute(
-                    """
-                    INSERT INTO chunks_fts (chunk_id, document_id, text, path, filename)
-                    VALUES (?, ?, ?, ?, ?)
-                """,
-                    (
-                        chunk["id"],
-                        chunk["document_id"],
-                        chunk["text"],
-                        chunk["path"],
-                        chunk["filename"],
-                    ),
-                )
-            logger.info(f"Added {len(chunks)} chunks to FTS")
+        self._chunk_repo.add_chunks(chunks)
 
     def search_fts(
         self,
@@ -184,35 +165,7 @@ class SQLiteClient:
         Returns:
             検索結果のリスト
         """
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                """
-                SELECT
-                    chunk_id,
-                    document_id,
-                    text,
-                    path,
-                    filename,
-                    bm25(chunks_fts) as score
-                FROM chunks_fts
-                WHERE chunks_fts MATCH ?
-                ORDER BY bm25(chunks_fts)
-                LIMIT ?
-            """,
-                (query, limit),
-            )
-            results = []
-            for row in cursor.fetchall():
-                results.append({
-                    "chunk_id": row["chunk_id"],
-                    "document_id": row["document_id"],
-                    "text": row["text"],
-                    "path": row["path"],
-                    "filename": row["filename"],
-                    "bm25_score": abs(row["score"]),  # BM25スコアは負数で返される
-                })
-            return results
+        return self._chunk_repo.search(query, limit)
 
     def get_document_by_id(self, document_id: str) -> dict[str, Any] | None:
         """IDでドキュメントを取得。
@@ -223,13 +176,7 @@ class SQLiteClient:
         Returns:
             ドキュメントデータまたはNone
         """
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM documents WHERE id = ?", (document_id,))
-            row = cursor.fetchone()
-            if row:
-                return dict(row)
-            return None
+        return self._document_repo.get_by_id(document_id)
 
     def get_document_by_path(self, path: str) -> dict[str, Any] | None:
         """パスでドキュメントを取得。
@@ -240,13 +187,7 @@ class SQLiteClient:
         Returns:
             ドキュメントデータまたはNone
         """
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM documents WHERE path = ?", (path,))
-            row = cursor.fetchone()
-            if row:
-                return dict(row)
-            return None
+        return self._document_repo.get_by_path(path)
 
     def get_document_by_hash(self, content_hash: str) -> dict[str, Any] | None:
         """ハッシュでドキュメントを取得。
@@ -257,15 +198,7 @@ class SQLiteClient:
         Returns:
             ドキュメントデータまたはNone
         """
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                "SELECT * FROM documents WHERE content_hash = ?", (content_hash,)
-            )
-            row = cursor.fetchone()
-            if row:
-                return dict(row)
-            return None
+        return self._document_repo.get_by_hash(content_hash)
 
     def delete_document(self, document_id: str, hard_delete: bool = False) -> None:
         """ドキュメントを削除。
@@ -274,26 +207,7 @@ class SQLiteClient:
             document_id: ドキュメントID
             hard_delete: 物理削除するかどうか
         """
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            if hard_delete:
-                cursor.execute("DELETE FROM documents WHERE id = ?", (document_id,))
-                cursor.execute(
-                    "DELETE FROM chunks_fts WHERE document_id = ?", (document_id,)
-                )
-                cursor.execute(
-                    "DELETE FROM transcripts WHERE document_id = ?", (document_id,)
-                )
-            else:
-                cursor.execute(
-                    """
-                    UPDATE documents
-                    SET is_deleted = 1, deleted_at = ?
-                    WHERE id = ?
-                """,
-                    (datetime.now().isoformat(), document_id),
-                )
-            logger.info(f"Deleted document: {document_id}")
+        self._document_repo.delete(document_id, hard_delete, delete_related=True)
 
     def add_transcript(self, transcript: dict[str, Any]) -> None:
         """Transcriptを追加。
@@ -301,24 +215,7 @@ class SQLiteClient:
         Args:
             transcript: Transcriptデータ
         """
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                """
-                INSERT OR REPLACE INTO transcripts
-                (id, document_id, full_text, language, duration_seconds, word_count)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """,
-                (
-                    transcript["id"],
-                    transcript["document_id"],
-                    transcript["full_text"],
-                    transcript["language"],
-                    transcript["duration_seconds"],
-                    transcript["word_count"],
-                ),
-            )
-            logger.info(f"Added transcript for document: {transcript['document_id']}")
+        self._transcript_repo.add(transcript)
 
     def get_transcript(self, document_id: str) -> dict[str, Any] | None:
         """ドキュメントIDでTranscriptを取得。
@@ -329,15 +226,7 @@ class SQLiteClient:
         Returns:
             Transcriptデータまたはなし
         """
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                "SELECT * FROM transcripts WHERE document_id = ?", (document_id,)
-            )
-            row = cursor.fetchone()
-            if row:
-                return dict(row)
-            return None
+        return self._transcript_repo.get_by_document_id(document_id)
 
     def get_stats(self) -> dict[str, Any]:
         """統計情報を取得。
@@ -345,36 +234,7 @@ class SQLiteClient:
         Returns:
             統計情報の辞書
         """
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-
-            cursor.execute(
-                "SELECT COUNT(*) as total FROM documents WHERE is_deleted = 0"
-            )
-            total = cursor.fetchone()["total"]
-
-            cursor.execute("""
-                SELECT media_type, COUNT(*) as count
-                FROM documents
-                WHERE is_deleted = 0
-                GROUP BY media_type
-            """)
-            by_type = {row["media_type"]: row["count"] for row in cursor.fetchall()}
-
-            cursor.execute("SELECT COUNT(*) as total FROM chunks_fts")
-            total_chunks = cursor.fetchone()["total"]
-
-            cursor.execute(
-                "SELECT MAX(indexed_at) as last FROM documents WHERE is_deleted = 0"
-            )
-            last_indexed = cursor.fetchone()["last"]
-
-            return {
-                "total_documents": total,
-                "by_media_type": by_type,
-                "total_chunks": total_chunks,
-                "last_indexed_at": last_indexed,
-            }
+        return self._document_repo.get_stats()
 
     def get_indexed_directories(self) -> list[dict[str, Any]]:
         """インデックス済みディレクトリを取得。
@@ -382,46 +242,7 @@ class SQLiteClient:
         Returns:
             ディレクトリパスとファイル数のリスト
         """
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            # パスからディレクトリ部分を抽出してグループ化
-            cursor.execute("""
-                SELECT
-                    SUBSTR(path, 1, INSTR(path || '/', '/') - 1 +
-                        LENGTH(path) - LENGTH(REPLACE(path, '/', '')) -
-                        LENGTH(REPLACE(SUBSTR(path, INSTR(path || '/', '/')), '/', ''))
-                    ) as base_dir,
-                    COUNT(*) as file_count
-                FROM documents
-                WHERE is_deleted = 0
-                GROUP BY base_dir
-                ORDER BY file_count DESC
-                LIMIT 20
-            """)
-            # シンプルな方法で再取得
-            cursor.execute("""
-                SELECT path FROM documents WHERE is_deleted = 0
-            """)
-            paths = [row["path"] for row in cursor.fetchall()]
-
-        # Pythonでディレクトリを集計
-        from collections import Counter
-        from pathlib import Path
-
-        dir_counts: Counter[str] = Counter()
-        for path in paths:
-            # 2階層目までのディレクトリを取得
-            p = Path(path)
-            if len(p.parts) >= 3:
-                base = str(Path(*p.parts[:4]))  # /Users/username/Documents など
-            else:
-                base = str(p.parent)
-            dir_counts[base] += 1
-
-        return [
-            {"path": path, "file_count": count}
-            for path, count in dir_counts.most_common(20)
-        ]
+        return self._document_repo.get_indexed_directories()
 
     def get_recent_documents(
         self, limit: int = 10, media_type: str | None = None
@@ -435,26 +256,4 @@ class SQLiteClient:
         Returns:
             ドキュメントのリスト
         """
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            if media_type:
-                cursor.execute(
-                    """
-                    SELECT * FROM documents
-                    WHERE is_deleted = 0 AND media_type = ?
-                    ORDER BY indexed_at DESC
-                    LIMIT ?
-                """,
-                    (media_type, limit),
-                )
-            else:
-                cursor.execute(
-                    """
-                    SELECT * FROM documents
-                    WHERE is_deleted = 0
-                    ORDER BY indexed_at DESC
-                    LIMIT ?
-                """,
-                    (limit,),
-                )
-            return [dict(row) for row in cursor.fetchall()]
+        return self._document_repo.get_recent(limit, media_type)

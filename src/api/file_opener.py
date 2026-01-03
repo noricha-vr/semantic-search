@@ -7,17 +7,13 @@ import subprocess
 from pathlib import Path
 
 from src.config.logging import get_logger
+from src.constants.media_types import is_media_file
 
 logger = get_logger()
 
 
 class FileOpener:
     """ファイルオープナー。"""
-
-    # 動画拡張子
-    VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv", ".wmv", ".flv", ".webm"}
-    # 音声拡張子
-    AUDIO_EXTENSIONS = {".mp3", ".wav", ".m4a", ".flac", ".aac", ".ogg", ".wma"}
 
     def open_file(
         self,
@@ -40,8 +36,7 @@ class FileOpener:
             logger.error(f"File not found: {file_path}")
             return False
 
-        suffix = file_path.suffix.lower()
-        is_media = suffix in self.VIDEO_EXTENSIONS | self.AUDIO_EXTENSIONS
+        is_media = is_media_file(file_path)
 
         try:
             if is_media and start_time is not None:
