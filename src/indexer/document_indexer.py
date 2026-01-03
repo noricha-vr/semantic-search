@@ -6,6 +6,7 @@
 import os
 import signal
 import uuid
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -126,7 +127,6 @@ class DocumentIndexer:
             テキスト抽出（VLM処理も含む）とマージされたテキスト
         """
         file_path = Path(file_path)
-        vlm_client = self._get_pdf_vlm_client()
         vlm_texts: dict[int, str] = {}
 
         # 処理するページを制限
@@ -140,8 +140,11 @@ class DocumentIndexer:
             pages_to_process = pages_to_process[:max_pages]
 
         total_pages = len(pages_to_process)
+        workers = self.settings.pdf_vlm_workers
+
         logger.info(
-            f"Starting VLM processing: {total_pages} pages from {file_path.name}"
+            f"Starting VLM processing: {total_pages} pages from {file_path.name} "
+            f"(workers: {workers})"
         )
 
         # VLMが必要なページを画像に変換して処理
@@ -155,32 +158,47 @@ class DocumentIndexer:
         timed_out = 0
 
         try:
-            for i, (page_num, image_path) in enumerate(zip(pages_to_process, image_paths)):
-                progress = f"[{i + 1}/{total_pages}]"
-                logger.info(f"{progress} Processing page {page_num + 1} with VLM...")
+            if workers <= 1:
+                # 順次処理（従来の方法）
+                vlm_client = self._get_pdf_vlm_client()
+                for i, (page_num, image_path) in enumerate(zip(pages_to_process, image_paths)):
+                    progress = f"[{i + 1}/{total_pages}]"
+                    logger.info(f"{progress} Processing page {page_num + 1} with VLM...")
 
-                try:
-                    # タイムアウト付きでVLM処理
-                    text = self._vlm_extract_with_timeout(
-                        vlm_client, image_path, timeout_seconds
-                    )
-                    if text:
-                        vlm_texts[page_num] = text
-                        successful += 1
-                        logger.info(
-                            f"{progress} Page {page_num + 1}: extracted {len(text)} chars"
+                    try:
+                        text = self._vlm_extract_with_timeout(
+                            vlm_client, image_path, timeout_seconds
                         )
+                        if text:
+                            vlm_texts[page_num] = text
+                            successful += 1
+                            logger.info(
+                                f"{progress} Page {page_num + 1}: extracted {len(text)} chars"
+                            )
+                        else:
+                            failed += 1
+                            logger.warning(f"{progress} Page {page_num + 1}: no text extracted")
+                    except VLMTimeoutError:
+                        timed_out += 1
+                        logger.warning(
+                            f"{progress} Page {page_num + 1}: timeout after {timeout_seconds}s"
+                        )
+                    except Exception as e:
+                        failed += 1
+                        logger.warning(f"{progress} Page {page_num + 1}: VLM error - {e}")
+            else:
+                # 並列処理
+                results = self._process_vlm_parallel(
+                    pages_to_process, image_paths, workers, timeout_seconds, total_pages
+                )
+                for page_num, result in results.items():
+                    if result["status"] == "success":
+                        vlm_texts[page_num] = result["text"]
+                        successful += 1
+                    elif result["status"] == "timeout":
+                        timed_out += 1
                     else:
                         failed += 1
-                        logger.warning(f"{progress} Page {page_num + 1}: no text extracted")
-                except VLMTimeoutError:
-                    timed_out += 1
-                    logger.warning(
-                        f"{progress} Page {page_num + 1}: timeout after {timeout_seconds}s"
-                    )
-                except Exception as e:
-                    failed += 1
-                    logger.warning(f"{progress} Page {page_num + 1}: VLM error - {e}")
         finally:
             # 一時画像ファイルを削除
             for image_path in image_paths:
@@ -200,6 +218,80 @@ class DocumentIndexer:
             return pdf_result.text
 
         return self._merge_pdf_texts(pdf_result, vlm_texts)
+
+    def _process_vlm_parallel(
+        self,
+        pages: list[int],
+        image_paths: list[Path],
+        workers: int,
+        timeout_seconds: int,
+        total_pages: int,
+    ) -> dict[int, dict[str, Any]]:
+        """VLM処理を並列実行。
+
+        Args:
+            pages: ページ番号リスト
+            image_paths: 画像パスリスト
+            workers: ワーカー数
+            timeout_seconds: タイムアウト秒数
+            total_pages: 総ページ数（ログ用）
+
+        Returns:
+            ページ番号 -> 結果辞書のマッピング
+        """
+        results: dict[int, dict[str, Any]] = {}
+        completed = 0
+
+        def process_page(args: tuple[int, int, Path]) -> tuple[int, dict[str, Any]]:
+            """1ページを処理する関数。"""
+            idx, page_num, image_path = args
+            # 各スレッドで新しいVLMクライアントを作成
+            vlm_client = VLMClient(model=self.settings.pdf_vlm_model)
+            try:
+                text = vlm_client.extract_text(image_path)
+                if text:
+                    return page_num, {"status": "success", "text": text}
+                return page_num, {"status": "failed", "error": "no text extracted"}
+            except Exception as e:
+                return page_num, {"status": "failed", "error": str(e)}
+
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            # 全タスクをサブミット
+            futures = {
+                executor.submit(process_page, (i, page_num, image_path)): (i, page_num)
+                for i, (page_num, image_path) in enumerate(zip(pages, image_paths))
+            }
+
+            for future in futures:
+                idx, page_num = futures[future]
+                try:
+                    result_page_num, result = future.result(timeout=timeout_seconds)
+                    results[result_page_num] = result
+                    completed += 1
+                    progress = f"[{completed}/{total_pages}]"
+                    if result["status"] == "success":
+                        logger.info(
+                            f"{progress} Page {page_num + 1}: extracted {len(result['text'])} chars"
+                        )
+                    else:
+                        logger.warning(
+                            f"{progress} Page {page_num + 1}: {result.get('error', 'failed')}"
+                        )
+                except FuturesTimeoutError:
+                    results[page_num] = {"status": "timeout"}
+                    completed += 1
+                    logger.warning(
+                        f"[{completed}/{total_pages}] Page {page_num + 1}: "
+                        f"timeout after {timeout_seconds}s"
+                    )
+                except Exception as e:
+                    results[page_num] = {"status": "failed", "error": str(e)}
+                    completed += 1
+                    logger.warning(
+                        f"[{completed}/{total_pages}] Page {page_num + 1}: error - {e}"
+                    )
+
+        return results
 
     def _vlm_extract_with_timeout(
         self,

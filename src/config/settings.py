@@ -69,6 +69,9 @@ class Settings(BaseSettings):
     pdf_vlm_max_pages: int = Field(
         default=20, description="VLM処理する最大ページ数（0で無制限）"
     )
+    pdf_vlm_workers: int = Field(
+        default=2, description="VLM並列処理のワーカー数（1で順次処理）"
+    )
 
     @field_validator("data_dir", mode="before")
     @classmethod
