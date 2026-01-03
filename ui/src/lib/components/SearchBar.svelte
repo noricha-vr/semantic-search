@@ -10,11 +10,11 @@
 	let selectedMediaType = $state<string | null>(null);
 
 	const mediaTypes = [
-		{ value: null, label: 'すべて' },
-		{ value: 'document', label: 'ドキュメント' },
-		{ value: 'image', label: '画像' },
-		{ value: 'audio', label: '音声' },
-		{ value: 'video', label: '動画' }
+		{ value: null, label: 'すべて', icon: 'fa-layer-group' },
+		{ value: 'document', label: 'ドキュメント', icon: 'fa-file-alt' },
+		{ value: 'image', label: '画像', icon: 'fa-image' },
+		{ value: 'audio', label: '音声', icon: 'fa-music' },
+		{ value: 'video', label: '動画', icon: 'fa-video' }
 	];
 
 	function handleSubmit(event: Event) {
@@ -36,38 +36,42 @@
 	}
 </script>
 
-<div class="space-y-3">
+<div class="space-y-4">
 	<form onsubmit={handleSubmit} class="relative">
+		<div class="absolute left-4 top-1/2 -translate-y-1/2 text-[#86868b]">
+			<i class="fa-solid fa-magnifying-glass text-lg"></i>
+		</div>
 		<input
 			type="text"
 			bind:value={inputValue}
 			onkeydown={handleKeyDown}
-			placeholder="検索キーワードを入力..."
+			placeholder="ドキュメントを検索..."
 			disabled={isLoading}
-			class="w-full px-4 py-3 pr-12 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+			class="search-input"
 		/>
-		<button
-			type="submit"
-			disabled={isLoading || !inputValue.trim()}
-			class="absolute right-2 top-1/2 transform -translate-y-1/2 px-3 py-1.5 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-		>
-			{#if isLoading}
-				<span class="inline-block animate-spin">...</span>
-			{:else}
-				検索
-			{/if}
-		</button>
+		{#if isLoading}
+			<div class="absolute right-4 top-1/2 -translate-y-1/2">
+				<div class="spinner"></div>
+			</div>
+		{:else if inputValue.trim()}
+			<button
+				type="submit"
+				class="absolute right-3 top-1/2 -translate-y-1/2 btn-primary py-2 px-4"
+				title="検索を実行"
+			>
+				<i class="fa-solid fa-arrow-right"></i>
+			</button>
+		{/if}
 	</form>
 
-	<div class="flex gap-2 flex-wrap">
-		{#each mediaTypes as { value, label }}
+	<div class="segment-control">
+		{#each mediaTypes as { value, label, icon }}
 			<button
 				type="button"
 				onclick={() => handleMediaTypeChange(value)}
-				class="px-3 py-1 text-sm rounded-full transition-colors {selectedMediaType === value
-					? 'bg-blue-500 text-white'
-					: 'bg-gray-100 text-gray-700 hover:bg-gray-200'}"
+				class="segment-control-item {selectedMediaType === value ? 'active' : ''}"
 			>
+				<i class="fa-solid {icon} mr-1.5"></i>
 				{label}
 			</button>
 		{/each}

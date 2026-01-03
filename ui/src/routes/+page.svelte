@@ -23,7 +23,6 @@
 	let errorMessage = $state('');
 	let sortBy = $state<'score' | 'filename'>('score');
 
-	// sortByが変わったときだけソートを実行（resultsの変更では再実行しない）
 	let prevSortBy = $state(sortBy);
 	$effect(() => {
 		if (sortBy !== prevSortBy) {
@@ -96,49 +95,62 @@
 			console.error('Failed to reveal file:', error);
 		}
 	}
-
 </script>
 
-<div class="min-h-screen bg-gray-50">
-	<header class="bg-white shadow-sm border-b border-gray-200">
-		<div class="max-w-4xl mx-auto px-4 py-6">
-			<div class="flex items-center justify-between mb-4">
-				<h1 class="text-2xl font-bold text-gray-900">LocalDocSearch</h1>
-				<nav class="flex gap-4">
-					<a href="/status" class="text-gray-600 hover:text-gray-900">ダッシュボード</a>
-					<a href="/settings" class="text-gray-600 hover:text-gray-900">設定</a>
+<div class="min-h-screen">
+	<header class="header sticky top-0 z-10">
+		<div class="max-w-4xl mx-auto px-6 py-5">
+			<div class="flex items-center justify-between mb-5">
+				<h1 class="text-[22px] font-semibold text-[#1d1d1f]">
+					<i class="fa-solid fa-magnifying-glass mr-2 text-[#007aff]"></i>
+					LocalDocSearch
+				</h1>
+				<nav class="flex gap-5">
+					<a href="/status" class="nav-link">
+						<i class="fa-solid fa-chart-simple mr-1.5"></i>
+						ダッシュボード
+					</a>
+					<a href="/settings" class="nav-link">
+						<i class="fa-solid fa-gear mr-1.5"></i>
+						設定
+					</a>
 				</nav>
 			</div>
 			<SearchBar onSearch={handleSearch} {isLoading} />
 		</div>
 	</header>
 
-	<main class="max-w-4xl mx-auto px-4 py-6">
+	<main class="max-w-4xl mx-auto px-6 py-6">
 		{#if errorMessage}
-			<div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+			<div class="alert alert-error mb-5">
+				<i class="fa-solid fa-circle-exclamation mr-2"></i>
 				{errorMessage}
 			</div>
 		{/if}
 
 		{#if isLoading}
-			<div class="flex justify-center py-12">
-				<div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+			<div class="flex justify-center py-16">
+				<div class="spinner"></div>
 			</div>
 		{:else if results.length > 0}
-			<div class="flex items-center justify-between mb-4">
-				<p class="text-sm text-gray-500">
-					「{query}」の検索結果: {results.length}件
+			<div class="flex items-center justify-between mb-5">
+				<p class="text-[14px] text-[#86868b]">
+					<i class="fa-solid fa-search mr-1.5"></i>
+					「{query}」の検索結果: <span class="font-medium text-[#1d1d1f]">{results.length}件</span>
 					{#if currentMediaType}
-						<span class="ml-1 px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">
+						<span class="badge badge-accent ml-2">
 							{getMediaTypeLabel(currentMediaType)}
 						</span>
 					{/if}
 				</p>
-				<div class="flex items-center gap-2 text-sm">
-					<span class="text-gray-500">並び替え:</span>
+				<div class="flex items-center gap-2">
+					<span class="text-[14px] text-[#86868b]">
+						<i class="fa-solid fa-arrow-down-wide-short mr-1"></i>
+						並び替え:
+					</span>
 					<select
 						bind:value={sortBy}
-						class="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+						class="input-field py-1.5 px-3 text-[14px]"
 					>
 						<option value="score">関連度順</option>
 						<option value="filename">ファイル名順</option>
@@ -147,13 +159,20 @@
 			</div>
 			<SearchResults {results} {query} onOpen={handleOpenFile} onReveal={handleRevealFile} />
 		{:else if query}
-			<p class="text-center text-gray-500 py-12">
-				「{query}」に一致する結果が見つかりませんでした
-			</p>
+			<div class="empty-state">
+				<i class="fa-regular fa-folder-open text-4xl text-[#86868b] mb-4 block"></i>
+				<p class="empty-state-title">結果が見つかりませんでした</p>
+				<p class="empty-state-description">
+					「{query}」に一致するドキュメントはありません。別のキーワードをお試しください。
+				</p>
+			</div>
 		{:else}
-			<div class="text-center text-gray-500 py-12">
-				<p class="text-lg mb-2">ドキュメントを検索</p>
-				<p class="text-sm">画像、PDF、動画、音声ファイルを自然言語で検索できます</p>
+			<div class="empty-state">
+				<i class="fa-solid fa-magnifying-glass text-4xl text-[#86868b] mb-4 block"></i>
+				<p class="empty-state-title">ドキュメントを検索</p>
+				<p class="empty-state-description">
+					画像、PDF、動画、音声ファイルを自然言語で検索できます
+				</p>
 			</div>
 		{/if}
 	</main>

@@ -12,13 +12,16 @@
 </script>
 
 {#if isIndexing}
-	<div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-		<div class="flex items-center gap-3">
-			<div class="animate-spin rounded-full h-5 w-5 border-2 border-blue-500 border-t-transparent"></div>
+	<div class="alert alert-info mb-5">
+		<div class="flex items-center gap-4">
+			<div class="spinner"></div>
 			<div>
-				<p class="font-medium text-blue-800">インデックス処理中...</p>
-				<p class="text-sm text-blue-600">{indexingPath}</p>
-				<p class="text-sm text-blue-500 mt-1">
+				<p class="font-semibold text-[15px]">
+					<i class="fa-solid fa-rotate mr-2"></i>
+					インデックス処理中...
+				</p>
+				<p class="text-[14px] opacity-90 mt-1">{indexingPath}</p>
+				<p class="text-[13px] opacity-75 mt-1">
 					PDF VLM処理がある場合、数分かかることがあります
 				</p>
 			</div>

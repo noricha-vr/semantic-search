@@ -76,22 +76,22 @@
 
 	function getMediaTypeIcon(type: string): string {
 		const icons: Record<string, string> = {
-			document: 'D',
-			image: 'I',
-			video: 'V',
-			audio: 'A'
+			document: 'fa-file-alt',
+			image: 'fa-image',
+			video: 'fa-video',
+			audio: 'fa-music'
 		};
-		return icons[type] || '?';
+		return icons[type] || 'fa-file';
 	}
 
-	function getMediaTypeColor(type: string): string {
-		const colors: Record<string, string> = {
-			document: 'bg-blue-100 text-blue-700',
-			image: 'bg-green-100 text-green-700',
-			video: 'bg-purple-100 text-purple-700',
-			audio: 'bg-orange-100 text-orange-700'
+	function getFileIconClass(type: string): string {
+		const classes: Record<string, string> = {
+			document: 'file-icon-document',
+			image: 'file-icon-image',
+			video: 'file-icon-video',
+			audio: 'file-icon-audio'
 		};
-		return colors[type] || 'bg-gray-100 text-gray-700';
+		return classes[type] || 'file-icon-document';
 	}
 
 	async function openFile(path: string) {
@@ -107,19 +107,26 @@
 	}
 </script>
 
-<div class="min-h-screen bg-gray-50">
-	<header class="bg-white shadow-sm border-b border-gray-200">
-		<div class="max-w-4xl mx-auto px-4 py-6">
+<div class="min-h-screen">
+	<header class="header sticky top-0 z-10">
+		<div class="max-w-4xl mx-auto px-6 py-5">
 			<div class="flex items-center justify-between">
-				<h1 class="text-2xl font-bold text-gray-900">ダッシュボード</h1>
-				<a href="/" class="text-blue-500 hover:text-blue-600">検索に戻る</a>
+				<h1 class="text-[22px] font-semibold text-[#1d1d1f]">
+					<i class="fa-solid fa-chart-simple mr-2 text-[#007aff]"></i>
+					ダッシュボード
+				</h1>
+				<a href="/" class="nav-link">
+					<i class="fa-solid fa-arrow-left mr-1.5"></i>
+					検索に戻る
+				</a>
 			</div>
 		</div>
 	</header>
 
-	<main class="max-w-4xl mx-auto px-4 py-6">
+	<main class="max-w-4xl mx-auto px-6 py-6">
 		{#if error}
-			<div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-6">
+			<div class="alert alert-error mb-5">
+				<i class="fa-solid fa-circle-exclamation mr-2"></i>
 				{error}
 				<button
 					onclick={loadData}
@@ -131,71 +138,93 @@
 		{/if}
 
 		{#if isLoading}
-			<div class="flex justify-center py-12">
-				<div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+			<div class="flex justify-center py-16">
+				<div class="spinner"></div>
 			</div>
 		{:else if stats}
-			<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-				<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-					<h2 class="text-sm font-medium text-gray-500 mb-1">総ドキュメント数</h2>
-					<p class="text-3xl font-bold text-gray-900">{stats.total_documents}</p>
+			<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+				<div class="stats-card">
+					<h2 class="stats-label">
+						<i class="fa-solid fa-file mr-1.5"></i>
+						総ドキュメント数
+					</h2>
+					<p class="stats-value">{stats.total_documents}</p>
 				</div>
 
-				<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-					<h2 class="text-sm font-medium text-gray-500 mb-1">総チャンク数</h2>
-					<p class="text-3xl font-bold text-gray-900">{stats.total_chunks}</p>
+				<div class="stats-card">
+					<h2 class="stats-label">
+						<i class="fa-solid fa-puzzle-piece mr-1.5"></i>
+						総チャンク数
+					</h2>
+					<p class="stats-value">{stats.total_chunks}</p>
 				</div>
 
-				<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-					<h2 class="text-sm font-medium text-gray-500 mb-1">最終インデックス</h2>
-					<p class="text-lg font-medium text-gray-900">{formatDate(stats.last_indexed_at)}</p>
+				<div class="stats-card">
+					<h2 class="stats-label">
+						<i class="fa-solid fa-clock mr-1.5"></i>
+						最終インデックス
+					</h2>
+					<p class="text-[16px] font-medium text-[#1d1d1f]">{formatDate(stats.last_indexed_at)}</p>
 				</div>
 			</div>
 
-			<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-				<h2 class="text-lg font-semibold text-gray-900 mb-4">メディアタイプ別</h2>
+			<div class="surface p-6 mb-5">
+				<h2 class="text-[17px] font-semibold text-[#1d1d1f] mb-4">
+					<i class="fa-solid fa-layer-group mr-2 text-[#007aff]"></i>
+					メディアタイプ別
+				</h2>
 
 				{#if Object.keys(stats.by_media_type).length > 0}
-					<div class="space-y-3">
+					<div class="space-y-4">
 						{#each Object.entries(stats.by_media_type) as [type, count] (type)}
-							<div class="flex items-center justify-between">
-								<span class="text-gray-700">{getMediaTypeLabel(type)}</span>
-								<div class="flex items-center gap-2">
-									<div class="w-32 bg-gray-200 rounded-full h-2">
+							<div class="flex items-center justify-between gap-4">
+								<div class="flex items-center gap-3 min-w-[120px]">
+									<i class="fa-solid {getMediaTypeIcon(type)} text-[#86868b]"></i>
+									<span class="text-[14px] text-[#1d1d1f]">{getMediaTypeLabel(type)}</span>
+								</div>
+								<div class="flex-1 flex items-center gap-3">
+									<div class="progress-bar flex-1">
 										<div
-											class="bg-blue-500 h-2 rounded-full"
+											class="progress-fill"
 											style="width: {Math.min((count / stats.total_documents) * 100, 100)}%"
 										></div>
 									</div>
-									<span class="text-gray-900 font-medium w-12 text-right">{count}</span>
+									<span class="text-[14px] font-medium text-[#1d1d1f] w-12 text-right">{count}</span>
 								</div>
 							</div>
 						{/each}
 					</div>
 				{:else}
-					<p class="text-gray-500 text-center py-4">データがありません</p>
+					<div class="empty-state py-6">
+						<i class="fa-regular fa-chart-bar text-2xl mb-2 block"></i>
+						<p class="text-[14px]">データがありません</p>
+					</div>
 				{/if}
 			</div>
 
 			{#if recentDocs.length > 0}
-				<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mt-6">
-					<h2 class="text-lg font-semibold text-gray-900 mb-4">最近のドキュメント</h2>
+				<div class="surface p-6 mb-5">
+					<h2 class="text-[17px] font-semibold text-[#1d1d1f] mb-4">
+						<i class="fa-solid fa-clock-rotate-left mr-2 text-[#007aff]"></i>
+						最近のドキュメント
+					</h2>
 					<ul class="space-y-2">
 						{#each recentDocs as doc (doc.id)}
-							<li class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-								<div class="flex items-center gap-3 min-w-0">
-									<span class="flex-shrink-0 w-8 h-8 rounded flex items-center justify-center text-sm font-medium {getMediaTypeColor(doc.media_type)}">
-										{getMediaTypeIcon(doc.media_type)}
-									</span>
-									<div class="min-w-0">
-										<p class="text-gray-900 truncate" title={doc.filename}>{doc.filename}</p>
-										<p class="text-sm text-gray-500">{formatSize(doc.size)} - {formatDate(doc.indexed_at)}</p>
+							<li class="list-item group hover:bg-[rgba(0,122,255,0.04)]">
+								<div class="flex items-center gap-3 min-w-0 flex-1">
+									<div class="file-icon {getFileIconClass(doc.media_type)}">
+										<i class="fa-solid {getMediaTypeIcon(doc.media_type)}"></i>
+									</div>
+									<div class="min-w-0 flex-1">
+										<p class="text-[14px] font-medium text-[#1d1d1f] truncate" title={doc.filename}>{doc.filename}</p>
+										<p class="text-[13px] text-[#86868b]">{formatSize(doc.size)} - {formatDate(doc.indexed_at)}</p>
 									</div>
 								</div>
 								<button
 									onclick={() => openFile(doc.path)}
-									class="flex-shrink-0 px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+									class="btn-primary py-1.5 px-3 text-[13px] opacity-0 group-hover:opacity-100 transition-opacity"
 								>
+									<i class="fa-solid fa-arrow-up-right-from-square mr-1"></i>
 									開く
 								</button>
 							</li>
@@ -204,11 +233,12 @@
 				</div>
 			{/if}
 
-			<div class="mt-6 flex justify-center">
+			<div class="flex justify-center">
 				<button
 					onclick={loadData}
-					class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+					class="btn-secondary"
 				>
+					<i class="fa-solid fa-arrows-rotate mr-2"></i>
 					更新
 				</button>
 			</div>

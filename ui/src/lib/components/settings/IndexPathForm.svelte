@@ -24,20 +24,26 @@
 	}
 </script>
 
-<div class="flex gap-2 mb-4">
-	<input
-		type="text"
-		bind:value={newPath}
-		onkeydown={handleKeydown}
-		placeholder="パスを入力 (例: ~/Documents)"
-		class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-		{disabled}
-	/>
+<div class="flex gap-3 mb-4">
+	<div class="relative flex-1">
+		<div class="absolute left-3 top-1/2 -translate-y-1/2 text-[#86868b]">
+			<i class="fa-solid fa-folder"></i>
+		</div>
+		<input
+			type="text"
+			bind:value={newPath}
+			onkeydown={handleKeydown}
+			placeholder="パスを入力 (例: ~/Documents)"
+			class="input-field w-full pl-10"
+			{disabled}
+		/>
+	</div>
 	<button
 		onclick={handleSubmit}
 		{disabled}
-		class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+		class="btn-primary"
 	>
+		<i class="fa-solid fa-plus mr-1.5"></i>
 		追加
 	</button>
 </div>

@@ -17,21 +17,31 @@
 {#if watchPaths.length > 0}
 	<ul class="space-y-2">
 		{#each watchPaths as path, i (i)}
-			<li class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-				<span class="text-gray-700">{path}</span>
+			<li class="list-item group">
+				<div class="flex items-center gap-3">
+					<i class="fa-solid fa-folder text-[#ff9500]"></i>
+					<span class="text-[14px] text-[#1d1d1f]">{path}</span>
+				</div>
 				<div class="flex gap-2">
 					<button
 						onclick={() => onIndex(path)}
 						disabled={isIndexing}
-						class="px-3 py-1 text-sm bg-green-500 text-white rounded hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+						class="btn-primary py-1.5 px-3 text-[13px]"
 					>
-						{isIndexing && indexingPath === path ? '処理中...' : 'インデックス'}
+						{#if isIndexing && indexingPath === path}
+							<i class="fa-solid fa-spinner fa-spin mr-1.5"></i>
+							処理中...
+						{:else}
+							<i class="fa-solid fa-database mr-1.5"></i>
+							インデックス
+						{/if}
 					</button>
 					<button
 						onclick={() => onRemove(i)}
 						disabled={isIndexing}
-						class="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+						class="btn-secondary py-1.5 px-3 text-[13px] text-[#ff3b30] hover:bg-[rgba(255,59,48,0.1)]"
 					>
+						<i class="fa-solid fa-trash-can mr-1.5"></i>
 						削除
 					</button>
 				</div>
@@ -39,5 +49,8 @@
 		{/each}
 	</ul>
 {:else}
-	<p class="text-gray-500 text-center py-4">監視パスが設定されていません</p>
+	<div class="empty-state py-6">
+		<i class="fa-regular fa-folder text-2xl mb-2 block"></i>
+		<p class="text-[14px]">監視パスが設定されていません</p>
+	</div>
 {/if}
