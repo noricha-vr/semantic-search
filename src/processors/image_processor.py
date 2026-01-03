@@ -5,7 +5,6 @@
 
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
 
 from PIL import Image
@@ -13,6 +12,10 @@ from PIL import Image
 from src.config.logging import get_logger
 from src.embeddings.ollama_embedding import OllamaEmbeddingClient
 from src.ocr.vlm_client import VLMClient
+from src.processors.image_metadata import (
+    ImageMetadataExtractor,
+    format_metadata_for_vectorization,
+)
 from src.storage.lancedb_client import LanceDBClient
 from src.storage.sqlite_client import SQLiteClient
 
@@ -57,6 +60,7 @@ class ImageProcessor:
         self.embedding_client = OllamaEmbeddingClient()
         self.lancedb_client = LanceDBClient()
         self.sqlite_client = SQLiteClient()
+        self.metadata_extractor = ImageMetadataExtractor()
 
     def _get_image_metadata(self, image_path: Path) -> ImageMetadata:
         """画像のメタデータを取得。
@@ -131,10 +135,16 @@ class ImageProcessor:
 
         image_path = Path(image_path)
 
-        # 説明文とOCRテキストを結合してEmbedding生成
+        # EXIFメタデータを抽出
+        exif_metadata = self.metadata_extractor.extract(image_path)
+        metadata_text = format_metadata_for_vectorization(exif_metadata)
+
+        # 説明文、OCRテキスト、メタデータを結合してEmbedding生成
         combined_text = result.description
         if result.ocr_text:
             combined_text += f"\n\n{result.ocr_text}"
+        if metadata_text:
+            combined_text += f"\n\n{metadata_text}"
 
         embedding = self.embedding_client.embed_text(combined_text)
 

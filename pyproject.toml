@@ -21,6 +21,7 @@ dependencies = [
 
     # Image Processing
     "pillow>=10.0.0",
+    "reverse_geocoder>=1.5.1",
 
     # Audio/Video
     "mlx-whisper>=0.4.0",
