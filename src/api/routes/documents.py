@@ -48,11 +48,25 @@ class IndexRequest(BaseModel):
     recursive: bool = Field(default=True, description="サブディレクトリも処理するか")
 
 
+class IndexStats(BaseModel):
+    """インデックス処理統計。"""
+
+    pdf_count: int = 0
+    vlm_pages_processed: int = 0
+    image_count: int = 0
+    audio_count: int = 0
+    video_count: int = 0
+    text_count: int = 0
+    skipped_count: int = 0
+
+
 class IndexResponse(BaseModel):
     """インデックスレスポンス。"""
 
     indexed_count: int
     paths: list[str]
+    stats: IndexStats | None = None
+    processing_time_seconds: float | None = None
 
 
 class StatsResponse(BaseModel):
@@ -157,6 +171,9 @@ async def get_document(document_id: str):
 @router.post("/index", response_model=IndexResponse)
 async def index_path(request: IndexRequest):
     """パスをインデックス化。"""
+    import time
+
+    start_time = time.time()
     path = Path(request.path).expanduser()
 
     if not path.exists():
@@ -164,19 +181,48 @@ async def index_path(request: IndexRequest):
 
     indexer = DocumentIndexer()
     indexed_paths = []
+    stats = IndexStats()
 
     if path.is_file():
         result = indexer.index_file(path)
         if result:
             indexed_paths.append(str(path))
+            _update_stats(stats, result, path)
     else:
         results = indexer.index_directory(path, recursive=request.recursive)
-        indexed_paths = [r["path"] for r in results]
+        for r in results:
+            indexed_paths.append(r["path"])
+            _update_stats(stats, r, Path(r["path"]))
+
+    # VLMページ数を取得（もし追跡されていれば）
+    if hasattr(indexer, "_vlm_pages_processed"):
+        stats.vlm_pages_processed = indexer._vlm_pages_processed
+
+    processing_time = time.time() - start_time
 
     return IndexResponse(
         indexed_count=len(indexed_paths),
         paths=indexed_paths,
+        stats=stats,
+        processing_time_seconds=round(processing_time, 2),
     )
+
+
+def _update_stats(stats: IndexStats, result: dict[str, Any], file_path: Path) -> None:
+    """統計を更新。"""
+    media_type = result.get("media_type", "")
+    extension = file_path.suffix.lower()
+
+    if media_type == "image":
+        stats.image_count += 1
+    elif media_type == "audio":
+        stats.audio_count += 1
+    elif media_type == "video":
+        stats.video_count += 1
+    elif extension == ".pdf":
+        stats.pdf_count += 1
+    else:
+        stats.text_count += 1
 
 
 @router.delete("/{document_id}")

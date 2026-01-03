@@ -110,6 +110,7 @@ uv run pytest tests/test_sqlite_client.py -v
 - Web UI（SvelteKit + Tailwind CSS）
 - メディアタイプフィルター
 - 検索結果ソート
+- PDF処理（PyMuPDF4LLM + VLMフォールバック）
 
 ## 対応ファイル形式
 
@@ -152,6 +153,47 @@ local-doc-search/
 | Embedding | Ollama (BGE-M3) |
 | 画像理解 | Ollama (llava:7b) |
 | 音声認識 | mlx-whisper |
+| PDF処理 | PyMuPDF4LLM |
+
+## PDF処理
+
+PyMuPDF4LLMを使用してPDFからテキストをMarkdown形式で抽出します。
+
+### VLMフォールバック
+
+画像ベースのPDF（スキャンPDF、画像埋め込みPDF等）ではテキスト抽出が困難な場合があります。1ページあたりの抽出文字数が閾値を下回った場合、VLM（Vision Language Model）を使用して画像からテキストを読み取ります。
+
+## 設定
+
+環境変数または`.env`ファイルで設定可能です。
+
+### 基本設定
+
+| 環境変数 | デフォルト | 説明 |
+|----------|-----------|------|
+| `OLLAMA_HOST` | http://localhost:11434 | OllamaサーバーのURL |
+| `DATA_DIR` | ~/.local/share/local-doc-search | データ保存ディレクトリ |
+| `LOG_LEVEL` | INFO | ログレベル |
+
+### モデル設定
+
+| 環境変数 | デフォルト | 説明 |
+|----------|-----------|------|
+| `EMBEDDING_MODEL` | bge-m3 | Embeddingモデル名 |
+| `VLM_MODEL` | llava:7b | 画像理解VLMモデル名 |
+
+### PDF処理設定
+
+| 環境変数 | デフォルト | 説明 |
+|----------|-----------|------|
+| `PDF_USE_MARKDOWN` | true | PyMuPDF4LLMでMarkdown抽出を使用 |
+| `PDF_MIN_CHARS_PER_PAGE` | 100 | VLMフォールバック閾値（1ページあたりの最小文字数） |
+| `PDF_VLM_FALLBACK` | true | テキスト少量時にVLMフォールバックを有効化 |
+| `PDF_VLM_DPI` | 150 | VLM処理時のPDF→画像変換DPI |
+| `PDF_VLM_MODEL` | minicpm-v | PDF VLM処理用モデル |
+| `PDF_VLM_TIMEOUT` | 60 | VLM処理の1ページあたりのタイムアウト（秒） |
+| `PDF_VLM_MAX_PAGES` | 20 | VLM処理する最大ページ数（0で無制限） |
+| `PDF_VLM_WORKERS` | 2 | VLM並列処理のワーカー数（1で順次処理） |
 
 ## ライセンス
 

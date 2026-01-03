@@ -60,6 +60,8 @@ class DocumentIndexer:
         self.sqlite_client = SQLiteClient()
         # PDF VLMフォールバック用（設定されたモデルを使用）
         self._pdf_vlm_client: VLMClient | None = None
+        # 処理統計の追跡
+        self._vlm_pages_processed: int = 0
 
     def _get_media_type(self, file_path: Path) -> MediaType:
         """ファイルのメディアタイプを判定。
@@ -212,6 +214,9 @@ class DocumentIndexer:
             f"VLM processing complete: {successful} successful, "
             f"{failed} failed, {timed_out} timed out"
         )
+
+        # VLM処理ページ数を追跡
+        self._vlm_pages_processed += successful
 
         # テキストとVLM結果をマージ
         if not vlm_texts:

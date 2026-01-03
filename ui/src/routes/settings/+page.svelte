@@ -9,12 +9,31 @@
 		file_count: number;
 	}
 
+	interface IndexStats {
+		pdf_count: number;
+		vlm_pages_processed: number;
+		image_count: number;
+		audio_count: number;
+		video_count: number;
+		text_count: number;
+		skipped_count: number;
+	}
+
+	interface IndexResult {
+		indexed_count: number;
+		paths: string[];
+		stats: IndexStats | null;
+		processing_time_seconds: number | null;
+	}
+
 	let watchPaths = $state<string[]>([]);
 	let newPath = $state('');
 	let message = $state('');
 	let messageType = $state<'info' | 'success' | 'error'>('info');
 	let indexedDirectories = $state<IndexedDirectory[]>([]);
 	let loadingDirectories = $state(true);
+	let isIndexing = $state(false);
+	let indexingPath = $state('');
 
 	async function fetchIndexedDirectories() {
 		loadingDirectories = true;
@@ -73,8 +92,41 @@
 		showMessage('パスを削除しました', 'info');
 	}
 
+	function formatStats(data: IndexResult): string {
+		const parts: string[] = [];
+
+		if (data.stats) {
+			const s = data.stats;
+			if (s.pdf_count > 0) {
+				let pdfInfo = `PDF: ${s.pdf_count}`;
+				if (s.vlm_pages_processed > 0) {
+					pdfInfo += ` (VLM: ${s.vlm_pages_processed}ページ)`;
+				}
+				parts.push(pdfInfo);
+			}
+			if (s.image_count > 0) parts.push(`画像: ${s.image_count}`);
+			if (s.audio_count > 0) parts.push(`音声: ${s.audio_count}`);
+			if (s.video_count > 0) parts.push(`動画: ${s.video_count}`);
+			if (s.text_count > 0) parts.push(`テキスト: ${s.text_count}`);
+		}
+
+		let msg = `${data.indexed_count}件のファイルをインデックス化しました`;
+		if (parts.length > 0) {
+			msg += ` [${parts.join(', ')}]`;
+		}
+		if (data.processing_time_seconds) {
+			msg += ` (${data.processing_time_seconds}秒)`;
+		}
+
+		return msg;
+	}
+
 	async function indexPath(path: string) {
-		showMessage('インデックス化を開始しました...', 'info');
+		if (isIndexing) return;
+
+		isIndexing = true;
+		indexingPath = path;
+		showMessage('', 'info'); // メッセージをクリア
 
 		try {
 			const response = await fetch(`${getApiBaseUrl()}/api/documents/index`, {
@@ -87,12 +139,15 @@
 				throw new Error('インデックス化に失敗しました');
 			}
 
-			const data = await response.json();
-			showMessage(`${data.indexed_count}件のファイルをインデックス化しました`, 'success');
+			const data: IndexResult = await response.json();
+			showMessage(formatStats(data), 'success');
 			// インデックス済みディレクトリを更新
 			await fetchIndexedDirectories();
 		} catch (error) {
 			showMessage(error instanceof Error ? error.message : 'エラーが発生しました', 'error');
+		} finally {
+			isIndexing = false;
+			indexingPath = '';
 		}
 	}
 </script>
@@ -108,6 +163,21 @@
 	</header>
 
 	<main class="max-w-4xl mx-auto px-4 py-6">
+		{#if isIndexing}
+			<div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+				<div class="flex items-center gap-3">
+					<div class="animate-spin rounded-full h-5 w-5 border-2 border-blue-500 border-t-transparent"></div>
+					<div>
+						<p class="font-medium text-blue-800">インデックス処理中...</p>
+						<p class="text-sm text-blue-600">{indexingPath}</p>
+						<p class="text-sm text-blue-500 mt-1">
+							PDF VLM処理がある場合、数分かかることがあります
+						</p>
+					</div>
+				</div>
+			</div>
+		{/if}
+
 		{#if message}
 			<div
 				class="px-4 py-3 rounded mb-6 {messageType === 'success'
@@ -146,13 +216,15 @@
 							<div class="flex gap-2">
 								<button
 									onclick={() => indexPath(path)}
-									class="px-3 py-1 text-sm bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
+									disabled={isIndexing}
+									class="px-3 py-1 text-sm bg-green-500 text-white rounded hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 								>
-									インデックス
+									{isIndexing && indexingPath === path ? '処理中...' : 'インデックス'}
 								</button>
 								<button
 									onclick={() => removePath(i)}
-									class="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
+									disabled={isIndexing}
+									class="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 								>
 									削除
 								</button>
@@ -174,28 +246,32 @@
 			<div class="grid grid-cols-2 gap-2">
 				<button
 					onclick={() => indexPath('~/Documents')}
-					class="p-3 text-left bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+					disabled={isIndexing}
+					class="p-3 text-left bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 				>
 					<span class="font-medium">Documents</span>
 					<span class="block text-sm text-gray-500">~/Documents</span>
 				</button>
 				<button
 					onclick={() => indexPath('~/Desktop')}
-					class="p-3 text-left bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+					disabled={isIndexing}
+					class="p-3 text-left bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 				>
 					<span class="font-medium">Desktop</span>
 					<span class="block text-sm text-gray-500">~/Desktop</span>
 				</button>
 				<button
 					onclick={() => indexPath('~/Downloads')}
-					class="p-3 text-left bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+					disabled={isIndexing}
+					class="p-3 text-left bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 				>
 					<span class="font-medium">Downloads</span>
 					<span class="block text-sm text-gray-500">~/Downloads</span>
 				</button>
 				<button
 					onclick={() => indexPath('~/Pictures')}
-					class="p-3 text-left bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+					disabled={isIndexing}
+					class="p-3 text-left bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 				>
 					<span class="font-medium">Pictures</span>
 					<span class="block text-sm text-gray-500">~/Pictures</span>
