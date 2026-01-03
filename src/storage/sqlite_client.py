@@ -376,6 +376,53 @@ class SQLiteClient:
                 "last_indexed_at": last_indexed,
             }
 
+    def get_indexed_directories(self) -> list[dict[str, Any]]:
+        """インデックス済みディレクトリを取得。
+
+        Returns:
+            ディレクトリパスとファイル数のリスト
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            # パスからディレクトリ部分を抽出してグループ化
+            cursor.execute("""
+                SELECT
+                    SUBSTR(path, 1, INSTR(path || '/', '/') - 1 +
+                        LENGTH(path) - LENGTH(REPLACE(path, '/', '')) -
+                        LENGTH(REPLACE(SUBSTR(path, INSTR(path || '/', '/')), '/', ''))
+                    ) as base_dir,
+                    COUNT(*) as file_count
+                FROM documents
+                WHERE is_deleted = 0
+                GROUP BY base_dir
+                ORDER BY file_count DESC
+                LIMIT 20
+            """)
+            # シンプルな方法で再取得
+            cursor.execute("""
+                SELECT path FROM documents WHERE is_deleted = 0
+            """)
+            paths = [row["path"] for row in cursor.fetchall()]
+
+        # Pythonでディレクトリを集計
+        from collections import Counter
+        from pathlib import Path
+
+        dir_counts: Counter[str] = Counter()
+        for path in paths:
+            # 2階層目までのディレクトリを取得
+            p = Path(path)
+            if len(p.parts) >= 3:
+                base = str(Path(*p.parts[:4]))  # /Users/username/Documents など
+            else:
+                base = str(p.parent)
+            dir_counts[base] += 1
+
+        return [
+            {"path": path, "file_count": count}
+            for path, count in dir_counts.most_common(20)
+        ]
+
     def get_recent_documents(
         self, limit: int = 10, media_type: str | None = None
     ) -> list[dict[str, Any]]:

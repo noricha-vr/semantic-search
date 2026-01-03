@@ -111,6 +111,24 @@ async def get_stats():
     )
 
 
+class IndexedDirectoryResponse(BaseModel):
+    """インデックス済みディレクトリレスポンス。"""
+
+    path: str
+    file_count: int
+
+
+@router.get("/directories", response_model=list[IndexedDirectoryResponse])
+async def get_indexed_directories():
+    """インデックス済みディレクトリを取得。"""
+    client = SQLiteClient()
+    directories = client.get_indexed_directories()
+    return [
+        IndexedDirectoryResponse(path=d["path"], file_count=d["file_count"])
+        for d in directories
+    ]
+
+
 @router.get("/{document_id}", response_model=DocumentResponse)
 async def get_document(document_id: str):
     """ドキュメント詳細を取得。"""

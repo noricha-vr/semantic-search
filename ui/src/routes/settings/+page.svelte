@@ -4,10 +4,31 @@
 
 	const STORAGE_KEY = 'localdocsearch_watch_paths';
 
+	interface IndexedDirectory {
+		path: string;
+		file_count: number;
+	}
+
 	let watchPaths = $state<string[]>([]);
 	let newPath = $state('');
 	let message = $state('');
 	let messageType = $state<'info' | 'success' | 'error'>('info');
+	let indexedDirectories = $state<IndexedDirectory[]>([]);
+	let loadingDirectories = $state(true);
+
+	async function fetchIndexedDirectories() {
+		loadingDirectories = true;
+		try {
+			const response = await fetch(`${getApiBaseUrl()}/api/documents/directories`);
+			if (response.ok) {
+				indexedDirectories = await response.json();
+			}
+		} catch (error) {
+			console.error('Failed to fetch indexed directories:', error);
+		} finally {
+			loadingDirectories = false;
+		}
+	}
 
 	onMount(() => {
 		const saved = localStorage.getItem(STORAGE_KEY);
@@ -18,6 +39,7 @@
 				watchPaths = [];
 			}
 		}
+		fetchIndexedDirectories();
 	});
 
 	function saveWatchPaths() {
@@ -67,6 +89,8 @@
 
 			const data = await response.json();
 			showMessage(`${data.indexed_count}件のファイルをインデックス化しました`, 'success');
+			// インデックス済みディレクトリを更新
+			await fetchIndexedDirectories();
 		} catch (error) {
 			showMessage(error instanceof Error ? error.message : 'エラーが発生しました', 'error');
 		}
@@ -177,6 +201,46 @@
 					<span class="block text-sm text-gray-500">~/Pictures</span>
 				</button>
 			</div>
+		</div>
+
+		<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+			<div class="flex items-center justify-between mb-4">
+				<h2 class="text-lg font-semibold text-gray-900">インデックス済みディレクトリ</h2>
+				<button
+					onclick={fetchIndexedDirectories}
+					class="text-sm text-blue-500 hover:text-blue-600"
+				>
+					更新
+				</button>
+			</div>
+
+			{#if loadingDirectories}
+				<div class="flex items-center justify-center py-8">
+					<div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+					<span class="ml-2 text-gray-500">読み込み中...</span>
+				</div>
+			{:else if indexedDirectories.length > 0}
+				<div class="space-y-2">
+					{#each indexedDirectories as dir}
+						<div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+							<div class="flex items-center gap-2">
+								<i class="fa-solid fa-folder text-yellow-500"></i>
+								<span class="text-gray-700 font-mono text-sm">{dir.path}</span>
+							</div>
+							<span class="text-sm text-gray-500 bg-gray-200 px-2 py-0.5 rounded">
+								{dir.file_count}ファイル
+							</span>
+						</div>
+					{/each}
+				</div>
+				<p class="text-sm text-gray-500 mt-4">
+					合計: {indexedDirectories.reduce((sum, d) => sum + d.file_count, 0)}ファイル
+				</p>
+			{:else}
+				<p class="text-gray-500 text-center py-8">
+					インデックス済みのディレクトリがありません
+				</p>
+			{/if}
 		</div>
 	</main>
 </div>
