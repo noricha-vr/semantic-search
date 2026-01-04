@@ -205,4 +205,4 @@ PyMuPDF4LLMを使用してPDFからテキストをMarkdown形式で抽出しま�
 
 ## ライセンス
 
-MIT
+AGPL-3.0
