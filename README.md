@@ -77,7 +77,7 @@ cd ui && bun run dev
 
 ```bash
 # 遅延起動の前提
-test -x /Users/ms25/.local/libexec/launchd-delay-exec
+test -x "$HOME/.local/libexec/launchd-delay-exec"
 
 # インストール
 ./scripts/install-daemon.sh

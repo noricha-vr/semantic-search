@@ -15,7 +15,7 @@
 ### インストール
 
 ```bash
-test -x /Users/ms25/.local/libexec/launchd-delay-exec
+test -x "$HOME/.local/libexec/launchd-delay-exec"
 ./scripts/install-daemon.sh
 ```
 
