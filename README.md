@@ -53,7 +53,7 @@ uv run python -m src.cli.main status
 ./scripts/start.sh
 
 # または直接起動
-uv run uvicorn src.api.main:app --host 0.0.0.0 --port 2602
+uv run uvicorn src.api.main:app --host 127.0.0.1 --port 2602
 ```
 
 - API: http://localhost:2602
@@ -71,11 +71,14 @@ cd ui && bun run dev
 
 ブラウザで http://localhost:5173 を開く
 
-### デーモン化（自動起動）
+### デーモン化（150秒遅延起動）
 
-ログイン時にAPIサーバーとファイル監視を自動起動:
+ログイン時の負荷を分散するため、APIサーバーとファイル監視を150秒遅延して自動起動します。`launchd-delay-exec` は Dock プロセスの経過時間をログイン時刻の基準とし、150秒未満なら残り時間だけ待ちます。
 
 ```bash
+# 遅延起動の前提
+test -x "$HOME/.local/libexec/launchd-delay-exec"
+
 # インストール
 ./scripts/install-daemon.sh
 
@@ -83,11 +86,12 @@ cd ui && bun run dev
 ./scripts/uninstall-daemon.sh
 
 # 状態確認
-launchctl list | grep localdocsearch
+launchctl print gui/$(id -u)/com.localdocsearch.api
+launchctl print gui/$(id -u)/com.localdocsearch.watcher
 
 # ログ確認
-tail -f /tmp/localdocsearch-api.log
-tail -f /tmp/localdocsearch-watcher.log
+tail -f ~/Library/Logs/local-doc-search/api.log
+tail -f ~/Library/Logs/local-doc-search/watcher.log
 ```
 
 ## テスト
