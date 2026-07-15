@@ -15,8 +15,11 @@
 ### インストール
 
 ```bash
+test -x /Users/ms25/.local/libexec/launchd-delay-exec
 ./scripts/install-daemon.sh
 ```
+
+遅延ヘルパーは Dock プロセスの経過時間をログイン時刻の基準とし、150秒未満なら残り時間だけ待ちます。
 
 ### 状態確認
 

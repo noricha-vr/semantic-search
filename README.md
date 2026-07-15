@@ -73,9 +73,12 @@ cd ui && bun run dev
 
 ### デーモン化（150秒遅延起動）
 
-ログイン時の負荷を分散するため、APIサーバーとファイル監視を150秒待ってから自動起動:
+ログイン時の負荷を分散するため、APIサーバーとファイル監視を150秒遅延して自動起動します。`launchd-delay-exec` は Dock プロセスの経過時間をログイン時刻の基準とし、150秒未満なら残り時間だけ待ちます。
 
 ```bash
+# 遅延起動の前提
+test -x /Users/ms25/.local/libexec/launchd-delay-exec
+
 # インストール
 ./scripts/install-daemon.sh
 
