@@ -71,9 +71,9 @@ cd ui && bun run dev
 
 ブラウザで http://localhost:5173 を開く
 
-### デーモン化（自動起動）
+### デーモン化（150秒遅延起動）
 
-ログイン時にAPIサーバーとファイル監視を自動起動:
+ログイン時の負荷を分散するため、APIサーバーとファイル監視を150秒待ってから自動起動:
 
 ```bash
 # インストール
@@ -83,7 +83,8 @@ cd ui && bun run dev
 ./scripts/uninstall-daemon.sh
 
 # 状態確認
-launchctl list | grep localdocsearch
+launchctl print gui/$(id -u)/com.localdocsearch.api
+launchctl print gui/$(id -u)/com.localdocsearch.watcher
 
 # ログ確認
 tail -f /tmp/localdocsearch-api.log

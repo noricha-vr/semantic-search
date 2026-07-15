@@ -76,7 +76,8 @@ uv run python -m src.cli.main watch ~/Documents
 ./scripts/install-daemon.sh
 
 # デーモン状態確認
-launchctl list | grep localdocsearch
+launchctl print gui/$(id -u)/com.localdocsearch.api
+launchctl print gui/$(id -u)/com.localdocsearch.watcher
 ```
 
 </commands>
