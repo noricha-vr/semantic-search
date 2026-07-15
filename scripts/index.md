@@ -28,8 +28,8 @@ launchctl print gui/$(id -u)/com.localdocsearch.watcher
 ### ログ確認
 
 ```bash
-tail -f /tmp/localdocsearch-api.log
-tail -f /tmp/localdocsearch-watcher.log
+tail -f ~/Library/Logs/local-doc-search/api.log
+tail -f ~/Library/Logs/local-doc-search/watcher.log
 ```
 
 ### アンインストール

@@ -53,7 +53,7 @@ uv run python -m src.cli.main status
 ./scripts/start.sh
 
 # または直接起動
-uv run uvicorn src.api.main:app --host 0.0.0.0 --port 2602
+uv run uvicorn src.api.main:app --host 127.0.0.1 --port 2602
 ```
 
 - API: http://localhost:2602
@@ -87,8 +87,8 @@ launchctl print gui/$(id -u)/com.localdocsearch.api
 launchctl print gui/$(id -u)/com.localdocsearch.watcher
 
 # ログ確認
-tail -f /tmp/localdocsearch-api.log
-tail -f /tmp/localdocsearch-watcher.log
+tail -f ~/Library/Logs/local-doc-search/api.log
+tail -f ~/Library/Logs/local-doc-search/watcher.log
 ```
 
 ## テスト

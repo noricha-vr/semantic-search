@@ -10,15 +10,15 @@
         <string>/Users/ms25/.local/libexec/launchd-delay-exec</string>
         <string>150</string>
         <string>--</string>
-        <string>/Users/ms25/project/local-doc-search/.venv/bin/python</string>
+        <string>__PROJECT_DIR__/.venv/bin/python</string>
         <string>-m</string>
         <string>src.cli.main</string>
         <string>watch</string>
-        <string>/Users/ms25/Documents</string>
+        <string>__HOME__/Documents</string>
     </array>
 
     <key>WorkingDirectory</key>
-    <string>/Users/ms25/project/local-doc-search</string>
+    <string>__PROJECT_DIR__</string>
 
     <key>EnvironmentVariables</key>
     <dict>
@@ -32,10 +32,16 @@
     <key>KeepAlive</key>
     <true/>
 
+    <key>ProcessType</key>
+    <string>Background</string>
+
+    <key>LowPriorityIO</key>
+    <true/>
+
     <key>StandardOutPath</key>
-    <string>/tmp/localdocsearch-watcher.log</string>
+    <string>__LOG_DIR__/watcher.log</string>
 
     <key>StandardErrorPath</key>
-    <string>/tmp/localdocsearch-watcher.err</string>
+    <string>__LOG_DIR__/watcher.err.log</string>
 </dict>
 </plist>

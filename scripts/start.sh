@@ -27,7 +27,7 @@ fi
 
 # API サーバーを起動
 echo -e "${GREEN}API サーバーを起動中...${NC}"
-uv run uvicorn src.api.main:app --host 0.0.0.0 --port 2602 &
+uv run uvicorn src.api.main:app --host 127.0.0.1 --port 2602 &
 API_PID=$!
 
 # 終了時にプロセスをクリーンアップ
